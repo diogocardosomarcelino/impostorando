@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMPOSTOR - Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0a0a1a;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    /* ── Login Screen ── */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+
+    .login-box {
+      background: #12122a;
+      border: 1px solid #1a1a35;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .login-title { font-size: 18px; font-weight: 800; text-align: center; letter-spacing: 1px; }
+
+    .login-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      background: #0a0a1a;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+    .login-input:focus { border-color: #ff4444; }
+    .login-input::placeholder { color: #444; }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ff4444, #ff6600);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+    }
+    .login-btn:active { transform: scale(0.97); }
+
+    .login-error { color: #ff4444; font-size: 13px; text-align: center; min-height: 18px; }
+
+    /* ── App Layout ── */
+    #app { display: none; min-height: 100vh; }
+    #app.active { display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
+      min-height: 100vh;
+      background: #0d0d20;
+      border-right: 1px solid #1a1a35;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; z-index: 10;
+    }
+
+    .sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid #1a1a35; margin-bottom: 16px; }
+
+    .sidebar-logo .logo {
+      font-size: 20px; font-weight: 900; letter-spacing: 4px;
+      background: linear-gradient(135deg, #ff4444, #ff8800);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .sidebar-logo .logo-sub { font-size: 10px; color: #555; letter-spacing: 2px; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+      color: #666; cursor: pointer; font-size: 14px; transition: all 0.2s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: #ccc; background: rgba(255,255,255,0.03); }
+    .nav-item.active { color: #ff8800; border-left-color: #ff8800; background: rgba(255,136,0,0.05); }
+    .nav-icon { font-size: 18px; width: 24px; text-align: center; }
+
+    .sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid #1a1a35; }
+
+    .online-badge { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #555; }
+    .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #44cc44; animation: dotPulse 2s infinite; }
+    @keyframes dotPulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+    .user-info { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #888; margin-bottom: 8px; }
+    .logout-btn {
+      font-size: 11px; color: #555; background: none; border: none; cursor: pointer;
+      text-decoration: underline;
+    }
+    .logout-btn:hover { color: #ff4444; }
+
+    /* ── Main ── */
+    .main { flex: 1; margin-left: 220px; padding: 24px 32px; min-height: 100vh; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .page-title { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+
+    .refresh-btn {
+      padding: 8px 16px; border: 1px solid #333; border-radius: 8px;
+      background: transparent; color: #888; cursor: pointer; font-size: 13px;
+    }
+    .refresh-btn:hover { border-color: #ff4444; color: #ff4444; }
+
+    /* Cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 12px; margin-bottom: 28px; }
+    .card { background: #12122a; border: 1px solid #1a1a35; border-radius: 12px; padding: 16px; text-align: center; }
+    .card-value { font-size: 28px; font-weight: 900; color: #ff8800; }
+    .card-value.green { color: #44cc44; } .card-value.red { color: #ff4444; } .card-value.blue { color: #4488ff; }
+    .card-label { font-size: 10px; color: #666; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+
+    /* Sections */
+    .section { margin-bottom: 28px; }
+    .section-title { font-size: 14px; font-weight: 700; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+
+    /* Chart */
+    .chart { display: flex; align-items: flex-end; gap: 4px; height: 100px; padding: 8px 0; }
+    .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+    .chart-bar { width: 100%; max-width: 24px; background: linear-gradient(to top,#ff4444,#ff8800); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .chart-label { font-size: 9px; color: #555; margin-top: 4px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 8px; color: #555; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #1a1a35; white-space: nowrap; }
+    td { padding: 10px 8px; border-bottom: 1px solid #111; color: #ccc; white-space: nowrap; }
+
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .status-online { background: rgba(68,204,68,0.15); color: #44cc44; }
+    .status-paid { background: rgba(68,136,255,0.15); color: #4488ff; }
+    .status-blocked { background: rgba(255,68,68,0.15); color: #ff4444; }
+    .status-free { background: rgba(255,170,0,0.15); color: #ffaa00; }
+    .status-vip { background: rgba(170,68,255,0.15); color: #aa44ff; }
+
+    .action-btn { padding: 4px 10px; border: 1px solid #333; border-radius: 6px; background: transparent; color: #44cc44; cursor: pointer; font-size: 11px; margin-right: 4px; }
+    .action-btn:hover { background: #44cc44; color: #000; }
+    .action-btn.revoke { color: #ff4444; } .action-btn.revoke:hover { background: #ff4444; color: #fff; }
+    .action-btn.vip { color: #aa44ff; } .action-btn.vip:hover { background: #aa44ff; color: #fff; }
+    .empty-msg { text-align: center; color: #555; padding: 24px; }
+
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
+    .meta-item { background: #12122a; border: 1px solid #1a1a35; border-radius: 8px; padding: 12px; }
+    .meta-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+    .meta-value { font-size: 18px; font-weight: 700; color: #ccc; margin-top: 4px; }
+
+    /* Settings */
+    .settings-group { background: #12122a; border: 1px solid #1a1a35; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .settings-group-title { font-size: 14px; font-weight: 700; color: #ccc; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #1a1a35; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #0d0d20; }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .setting-name { font-size: 14px; color: #ccc; }
+    .setting-desc { font-size: 11px; color: #555; }
+
+    .toggle { width: 48px; height: 26px; background: #333; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; border: none; flex-shrink: 0; }
+    .toggle.active { background: #ff4444; }
+    .toggle .knob { width: 20px; height: 20px; background: #fff; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.3s; }
+    .toggle.active .knob { transform: translateX(22px); }
+
+    .setting-input { padding: 8px 12px; border: 1px solid #333; border-radius: 8px; background: #0a0a1a; color: #fff; font-size: 14px; width: 120px; text-align: center; outline: none; }
+    .setting-input:focus { border-color: #ff4444; }
+    .save-btn { padding: 4px 12px; border: 1px solid #44cc44; border-radius: 6px; background: transparent; color: #44cc44; cursor: pointer; font-size: 12px; margin-left: 8px; }
+    .save-btn:hover { background: #44cc44; color: #000; }
+    .saved-msg { font-size: 11px; color: #44cc44; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
+    .saved-msg.show { opacity: 1; }
+
+    .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-input { flex: 1; padding: 10px 14px; border: 1px solid #333; border-radius: 8px; background: #12122a; color: #fff; font-size: 14px; outline: none; }
+    .search-input:focus { border-color: #ff4444; }
+    .search-input::placeholder { color: #444; }
+    .search-btn { padding: 10px 20px; border: none; border-radius: 8px; background: linear-gradient(135deg,#ff4444,#ff6600); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+    /* Users page */
+    .user-card {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #12122a; border: 1px solid #1a1a35; border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 8px;
+    }
+    .user-card-info { display: flex; flex-direction: column; gap: 2px; }
+    .user-card-name { font-size: 15px; font-weight: 700; color: #ccc; }
+    .user-card-meta { font-size: 11px; color: #555; }
+    .user-card-actions { display: flex; gap: 6px; }
+
+    .role-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 8px; }
+    .role-superadmin { background: rgba(255,136,0,0.15); color: #ff8800; }
+    .role-admin { background: rgba(68,136,255,0.15); color: #4488ff; }
+
+    .create-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .create-form input { padding: 10px 14px; border: 1px solid #333; border-radius: 8px; background: #12122a; color: #fff; font-size: 14px; outline: none; flex: 1; min-width: 120px; }
+    .create-form input:focus { border-color: #ff4444; }
+    .create-form input::placeholder { color: #444; }
+
+    @media (max-width: 768px) {
+      .sidebar { width: 60px; }
+      .sidebar-logo .logo, .sidebar-logo .logo-sub, .nav-item span:not(.nav-icon), .sidebar-footer { display: none; }
+      .nav-item { justify-content: center; padding: 14px 0; }
+      .main { margin-left: 60px; padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ LOGIN ══ -->
+  <div id="login-screen">
+    <div style="text-align:center">
+      <div style="font-size:32px;font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#ff4444,#ff8800);-webkit-background-clip:text;-webkit-text-fill-color:transparent">IMPOSTOR</div>
+      <div style="font-size:11px;color:#555;letter-spacing:3px">painel admin</div>
+    </div>
+    <div class="login-box">
+      <div class="login-title">Login</div>
+      <input class="login-input" id="login-user" type="text" placeholder="Usuário" autocomplete="username">
+      <input class="login-input" id="login-pass" type="password" placeholder="Senha" autocomplete="current-password">
+      <div class="login-error" id="login-error"></div>
+      <button class="login-btn" onclick="doLogin()">ENTRAR</button>
+    </div>
+  </div>
+
+  <!-- ══ APP ══ -->
+  <div id="app">
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo">IMPOSTOR</div>
+        <div class="logo-sub">painel admin</div>
+      </div>
+
+      <div class="nav-item active" onclick="showPage('dashboard', this)"><span class="nav-icon">📊</span><span>Dashboard</span></div>
+      <div class="nav-item" onclick="showPage('players', this)"><span class="nav-icon">👥</span><span>Jogadores</span></div>
+      <div class="nav-item" onclick="showPage('settings', this)"><span class="nav-icon">⚙️</span><span>Configurações</span></div>
+      <div class="nav-item" onclick="showPage('users', this)"><span class="nav-icon">🔑</span><span>Usuários</span></div>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span id="sidebar-user">admin</span>
+          <button class="logout-btn" onclick="doLogout()">Sair</button>
+        </div>
+        <div class="online-badge">
+          <div class="online-dot"></div>
+          <span id="sidebar-online">0 online</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="main">
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page active">
+        <div class="page-header"><span class="page-title">Dashboard</span><button class="refresh-btn" onclick="loadStats()">Atualizar</button></div>
+        <div class="cards" id="cards"></div>
+        <div class="section"><div class="section-title">Atividade por Hora</div><div class="chart" id="chart"></div></div>
+        <div class="section"><div class="section-title">Visão Geral</div><div class="meta-grid" id="meta"></div></div>
+      </div>
+
+      <!-- JOGADORES -->
+      <div id="page-players" class="page">
+        <div class="page-header"><span class="page-title">Jogadores</span><button class="refresh-btn" onclick="loadStats()">Atualizar</button></div>
+        <div class="search-bar"><input class="search-input" id="player-search" type="text" placeholder="Buscar por IP, nome..." oninput="filterPlayers()"></div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Status</th><th>IP</th><th>Nomes</th><th>Visitas</th><th>Tempo</th><th>Jogos</th><th>Último</th><th>Ações</th></tr></thead>
+          <tbody id="players-table"></tbody></table>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES -->
+      <div id="page-settings" class="page">
+        <div class="page-header"><span class="page-title">Configurações</span></div>
+        <div class="settings-group">
+          <div class="settings-group-title">Monetização</div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-name">Ativar cobrança</span><span class="setting-desc">Jogadores bloqueados após tempo gratuito</span></div>
+            <button class="toggle" id="toggle-monetization" onclick="toggleMonetization()"><div class="knob"></div></button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-name">Tempo gratuito (min)</span></div>
+            <div style="display:flex;align-items:center">
+              <input class="setting-input" id="input-free-minutes" type="number" min="1" max="999">
+              <button class="save-btn" onclick="saveFreeMinutes()">Salvar</button>
+              <span class="saved-msg" id="msg-free-minutes">Salvo!</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-name">Valor (R$)</span></div>
+            <div style="display:flex;align-items:center">
+              <input class="setting-input" id="input-price" type="text" placeholder="5,00">
+              <button class="save-btn" onclick="savePrice()">Salvar</button>
+              <span class="saved-msg" id="msg-price">Salvo!</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info"><span class="setting-name">Chave PIX</span></div>
+            <div style="display:flex;align-items:center">
+              <input class="setting-input" id="input-pix-key" type="text" placeholder="email@pix.com" style="width:200px">
+              <button class="save-btn" onclick="savePixKey()">Salvar</button>
+              <span class="saved-msg" id="msg-pix-key">Salvo!</span>
+            </div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">Acesso VIP por IP</div>
+          <div style="display:flex;gap:8px"><input class="search-input" id="input-vip-ip" type="text" placeholder="Ex: 192.168.1.100" style="flex:1"><button class="search-btn" onclick="addVipIp()">Liberar</button></div>
+          <div id="vip-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- USUÁRIOS -->
+      <div id="page-users" class="page">
+        <div class="page-header"><span class="page-title">Usuários Admin</span></div>
+        <div class="settings-group">
+          <div class="settings-group-title">Criar novo usuário</div>
+          <div class="create-form" id="create-user-form">
+            <input id="new-user-name" type="text" placeholder="Nome completo">
+            <input id="new-user-username" type="text" placeholder="Username">
+            <input id="new-user-password" type="password" placeholder="Senha">
+            <button class="search-btn" onclick="createUser()">Criar</button>
+          </div>
+          <div class="login-error" id="create-user-error"></div>
+        </div>
+        <div class="section-title">Usuários cadastrados</div>
+        <div id="users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let token = sessionStorage.getItem('admin-token');
+    let currentUser = null;
+    let cachedData = null;
+    let allVisitors = [];
+
+    // ── Auth ──
+    async function doLogin() {
+      const username = document.getElementById('login-user').value.trim();
+      const password = document.getElementById('login-pass').value;
+      const errorEl = document.getElementById('login-error');
+      if (!username || !password) { errorEl.textContent = 'Preencha todos os campos.'; return; }
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await res.json();
+        if (data.error) { errorEl.textContent = data.error; return; }
+        token = data.token;
+        currentUser = data.user;
+        sessionStorage.setItem('admin-token', token);
+        enterApp();
+      } catch (e) {
+        errorEl.textContent = 'Erro de conexão.';
+      }
+    }
+
+    // Enter on password field
+    document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+    function doLogout() {
+      token = null;
+      currentUser = null;
+      sessionStorage.removeItem('admin-token');
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').classList.remove('active');
+    }
+
+    function enterApp() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').classList.add('active');
+      if (currentUser) document.getElementById('sidebar-user').textContent = currentUser.name || currentUser.username;
+      loadStats();
+      loadUsers();
+    }
+
+    // Try auto-login on load
+    if (token) {
+      fetch('/api/admin/stats', { headers: { 'x-admin-token': token } })
+        .then(r => { if (r.ok) return r.json(); throw new Error(); })
+        .then(d => { cachedData = d; allVisitors = d.visitors || []; enterApp(); render(d); })
+        .catch(() => { token = null; sessionStorage.removeItem('admin-token'); });
+    }
+
+    // ── API helper ──
+    function api(url, opts = {}) {
+      opts.headers = { ...opts.headers, 'Content-Type': 'application/json', 'x-admin-token': token };
+      return fetch(url, opts).then(r => { if (r.status === 401) { doLogout(); throw new Error('expired'); } return r.json(); });
+    }
+
+    // ── Navigation ──
+    function showPage(id, el) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + id).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      if (el) el.classList.add('active');
+    }
+
+    // ── Helpers ──
+    function formatMs(ms) {
+      if (ms < 60000) return Math.floor(ms / 1000) + 's';
+      if (ms < 3600000) return Math.floor(ms / 60000) + 'min';
+      return (ms / 3600000).toFixed(1) + 'h';
+    }
+    function timeAgo(ts) {
+      const diff = Date.now() - ts;
+      if (diff < 60000) return 'agora';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'min';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+      return Math.floor(diff / 86400000) + 'd';
+    }
+    function flashSaved(id) { const el = document.getElementById(id); el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); }
+
+    // ── Load Stats ──
+    async function loadStats() {
+      try {
+        cachedData = await api('/api/admin/stats');
+        allVisitors = cachedData.visitors || [];
+        render(cachedData);
+      } catch (e) {}
+    }
+
+    function render(d) {
+      document.getElementById('sidebar-online').textContent = d.online + ' online';
+      document.getElementById('cards').innerHTML = `
+        <div class="card"><div class="card-value green">${d.online}</div><div class="card-label">Online</div></div>
+        <div class="card"><div class="card-value">${d.todayUnique}</div><div class="card-label">Únicos</div></div>
+        <div class="card"><div class="card-value blue">${d.todayGames}</div><div class="card-label">Partidas</div></div>
+        <div class="card"><div class="card-value">${d.todayRooms}</div><div class="card-label">Salas</div></div>
+        <div class="card"><div class="card-value green">${d.paidCount}</div><div class="card-label">Pagantes</div></div>
+        <div class="card"><div class="card-value red">${d.blockedCount}</div><div class="card-label">Bloqueados</div></div>`;
+
+      const maxH = Math.max(...d.hourlyActivity, 1);
+      document.getElementById('chart').innerHTML = d.hourlyActivity.map((v, i) =>
+        `<div class="chart-bar-wrap"><div class="chart-bar" style="height:${(v/maxH)*100}%"></div><span class="chart-label">${String(i).padStart(2,'0')}</span></div>`).join('');
+
+      document.getElementById('meta').innerHTML = `
+        <div class="meta-item"><div class="meta-label">Total visitantes</div><div class="meta-value">${d.totalVisitors}</div></div>
+        <div class="meta-item"><div class="meta-label">Total partidas</div><div class="meta-value">${d.totalGames}</div></div>
+        <div class="meta-item"><div class="meta-label">Total salas</div><div class="meta-value">${d.totalRooms}</div></div>
+        <div class="meta-item"><div class="meta-label">Pico</div><div class="meta-value">${d.peakHour}</div></div>
+        <div class="meta-item"><div class="meta-label">Pico simultâneo</div><div class="meta-value">${d.peakConcurrent}</div></div>
+        <div class="meta-item"><div class="meta-label">Free</div><div class="meta-value">${d.freeMinutes}min</div></div>`;
+
+      renderPlayersTable(allVisitors);
+
+      const t = document.getElementById('toggle-monetization');
+      d.monetizationEnabled ? t.classList.add('active') : t.classList.remove('active');
+      document.getElementById('input-free-minutes').value = d.freeMinutes;
+      if (d.price) document.getElementById('input-price').value = d.price;
+      if (d.pixKey) document.getElementById('input-pix-key').value = d.pixKey;
+      renderVipList(d.vipIps || []);
+    }
+
+    function renderPlayersTable(visitors) {
+      const tbody = document.getElementById('players-table');
+      if (!visitors.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">Nenhum visitante</td></tr>'; return; }
+      tbody.innerHTML = visitors.map(v => {
+        let s = '';
+        if (v.isOnline) s += '<span class="status-badge status-online">ON</span> ';
+        if (v.isVip) s += '<span class="status-badge status-vip">VIP</span>';
+        else if (v.isPaid) s += '<span class="status-badge status-paid">PAGO</span>';
+        else if (v.isBlocked) s += '<span class="status-badge status-blocked">BLOQ</span>';
+        else s += '<span class="status-badge status-free">FREE</span>';
+        let a = v.isPaid ? `<button class="action-btn revoke" onclick="revokeAccess('${v.fullFingerprint}')">Revogar</button>` : `<button class="action-btn" onclick="grantAccess('${v.fullFingerprint}')">24h</button>`;
+        if (!v.isVip) a += `<button class="action-btn vip" onclick="addVipByFp('${v.fullFingerprint}')">VIP</button>`;
+        return `<tr><td>${s}</td><td>${v.ip||'-'}</td><td>${v.names.join(', ')||'-'}</td><td>${v.totalVisits}</td><td>${formatMs(v.totalPlayTime)}</td><td>${v.gamesPlayed}</td><td>${timeAgo(v.lastSeen)}</td><td>${a}</td></tr>`;
+      }).join('');
+    }
+
+    function filterPlayers() {
+      const q = document.getElementById('player-search').value.toLowerCase().trim();
+      renderPlayersTable(q ? allVisitors.filter(v => (v.ip||'').includes(q) || v.names.some(n => n.toLowerCase().includes(q)) || v.fullFingerprint.toLowerCase().includes(q)) : allVisitors);
+    }
+
+    function renderVipList(ips) {
+      const el = document.getElementById('vip-list');
+      if (!ips.length) { el.innerHTML = '<span style="font-size:12px;color:#555">Nenhum IP VIP</span>'; return; }
+      el.innerHTML = ips.map(ip => `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0a0a1a;border-radius:8px;margin-bottom:6px"><span style="font-family:monospace;font-size:13px;color:#aa44ff">${ip}</span><button class="action-btn revoke" onclick="removeVipIp('${ip}')">Remover</button></div>`).join('');
+    }
+
+    // ── API Calls ──
+    async function grantAccess(fp) { await api('/api/admin/grant-access', { method: 'POST', body: JSON.stringify({ fingerprint: fp, hours: 24 }) }); loadStats(); }
+    async function revokeAccess(fp) { await api('/api/admin/revoke-access', { method: 'POST', body: JSON.stringify({ fingerprint: fp }) }); loadStats(); }
+    async function toggleMonetization() { const t = document.getElementById('toggle-monetization'); await api('/api/admin/monetization', { method: 'POST', body: JSON.stringify({ enabled: !t.classList.contains('active') }) }); loadStats(); }
+    async function saveFreeMinutes() { await api('/api/admin/config', { method: 'POST', body: JSON.stringify({ freeMinutes: parseInt(document.getElementById('input-free-minutes').value) }) }); flashSaved('msg-free-minutes'); loadStats(); }
+    async function savePrice() { await api('/api/admin/config', { method: 'POST', body: JSON.stringify({ price: document.getElementById('input-price').value.trim() }) }); flashSaved('msg-price'); }
+    async function savePixKey() { await api('/api/admin/config', { method: 'POST', body: JSON.stringify({ pixKey: document.getElementById('input-pix-key').value.trim() }) }); flashSaved('msg-pix-key'); }
+    async function addVipIp() { const ip = document.getElementById('input-vip-ip').value.trim(); if (!ip) return; await api('/api/admin/vip-ip', { method: 'POST', body: JSON.stringify({ ip, action: 'add' }) }); document.getElementById('input-vip-ip').value = ''; loadStats(); }
+    async function removeVipIp(ip) { await api('/api/admin/vip-ip', { method: 'POST', body: JSON.stringify({ ip, action: 'remove' }) }); loadStats(); }
+    async function addVipByFp(fp) { await api('/api/admin/vip-fp', { method: 'POST', body: JSON.stringify({ fingerprint: fp }) }); loadStats(); }
+
+    // ── Users ──
+    async function loadUsers() {
+      try {
+        const users = await api('/api/admin/users');
+        renderUsers(users);
+      } catch (e) {}
+    }
+
+    function renderUsers(users) {
+      const el = document.getElementById('users-list');
+      el.innerHTML = users.map(u => {
+        const roleBadge = u.role === 'superadmin'
+          ? '<span class="role-badge role-superadmin">SUPERADMIN</span>'
+          : '<span class="role-badge role-admin">ADMIN</span>';
+        const lastLogin = u.lastLogin ? timeAgo(u.lastLogin) : 'nunca';
+        const actions = u.role !== 'superadmin'
+          ? `<button class="action-btn revoke" onclick="deleteUser('${u.id}')">Remover</button>`
+          : '';
+        return `<div class="user-card">
+          <div class="user-card-info">
+            <div class="user-card-name">${u.name} ${roleBadge}</div>
+            <div class="user-card-meta">@${u.username} · Último login: ${lastLogin}</div>
+          </div>
+          <div class="user-card-actions">${actions}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function createUser() {
+      const name = document.getElementById('new-user-name').value.trim();
+      const username = document.getElementById('new-user-username').value.trim();
+      const password = document.getElementById('new-user-password').value;
+      const errorEl = document.getElementById('create-user-error');
+      if (!username || !password) { errorEl.textContent = 'Username e senha obrigatórios.'; return; }
+      try {
+        const res = await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ name: name || username, username, password }) });
+        if (res.error) { errorEl.textContent = res.error; return; }
+        errorEl.textContent = '';
+        document.getElementById('new-user-name').value = '';
+        document.getElementById('new-user-username').value = '';
+        document.getElementById('new-user-password').value = '';
+        loadUsers();
+      } catch (e) { errorEl.textContent = 'Erro ao criar usuário.'; }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Remover este usuário?')) return;
+      await api('/api/admin/users/' + id, { method: 'DELETE' });
+      loadUsers();
+    }
+
+    // Auto-refresh
+    setInterval(() => { if (token) loadStats(); }, 10000);
+  </script>
+</body>
+</html>
