@@ -8,7 +8,7 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: #0a0a1a;
+      background: #000000;
       color: #fff;
       min-height: 100vh;
     }
@@ -42,7 +42,7 @@
       padding: 12px 14px;
       border: 1px solid #333;
       border-radius: 8px;
-      background: #0a0a1a;
+      background: #000000;
       color: #fff;
       font-size: 14px;
       outline: none;
@@ -183,7 +183,7 @@
     .toggle .knob { width: 20px; height: 20px; background: #fff; border-radius: 50%; position: absolute; top: 3px; left: 3px; transition: transform 0.3s; }
     .toggle.active .knob { transform: translateX(22px); }
 
-    .setting-input { padding: 8px 12px; border: 1px solid #333; border-radius: 8px; background: #0a0a1a; color: #fff; font-size: 14px; width: 120px; text-align: center; outline: none; }
+    .setting-input { padding: 8px 12px; border: 1px solid #333; border-radius: 8px; background: #000000; color: #fff; font-size: 14px; width: 120px; text-align: center; outline: none; }
     .setting-input:focus { border-color: #ff4444; }
     .save-btn { padding: 4px 12px; border: 1px solid #44cc44; border-radius: 6px; background: transparent; color: #44cc44; cursor: pointer; font-size: 12px; margin-left: 8px; }
     .save-btn:hover { background: #44cc44; color: #000; }
@@ -229,7 +229,7 @@
   <!-- ══ LOGIN ══ -->
   <div id="login-screen">
     <div style="text-align:center">
-      <img src="/assets/logo.png" alt="IMPOSTOR" style="width:240px;max-width:70vw;height:auto">
+      <img src="/assets/logo.png" alt="IMPOSTOR" style="width:320px;max-width:80vw;height:auto">
       <div style="font-size:11px;color:#555;letter-spacing:3px">painel admin</div>
     </div>
     <div class="login-box">
@@ -496,7 +496,7 @@
     function renderVipList(ips) {
       const el = document.getElementById('vip-list');
       if (!ips.length) { el.innerHTML = '<span style="font-size:12px;color:#555">Nenhum IP VIP</span>'; return; }
-      el.innerHTML = ips.map(ip => `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0a0a1a;border-radius:8px;margin-bottom:6px"><span style="font-family:monospace;font-size:13px;color:#aa44ff">${ip}</span><button class="action-btn revoke" onclick="removeVipIp('${ip}')">Remover</button></div>`).join('');
+      el.innerHTML = ips.map(ip => `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#000000;border-radius:8px;margin-bottom:6px"><span style="font-family:monospace;font-size:13px;color:#aa44ff">${ip}</span><button class="action-btn revoke" onclick="removeVipIp('${ip}')">Remover</button></div>`).join('');
     }
 
     // ── API Calls ──
