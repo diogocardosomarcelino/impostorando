@@ -213,6 +213,56 @@ function checkAndEmitAccess(socket) {
   return true;
 }
 
+// ── Voting results broadcast ──
+function broadcastVotingResults(room) {
+  room.gameState = 'results';
+
+  // Tally votes
+  const tallies = {};
+  room.players.forEach(p => { tallies[p.name] = 0; });
+  for (const targets of Object.values(room.votingPhase.votes)) {
+    for (const t of targets) {
+      tallies[t] = (tallies[t] || 0) + 1;
+    }
+  }
+
+  // Sort by votes desc
+  const sorted = Object.entries(tallies)
+    .map(([name, votes]) => ({ name, votes }))
+    .sort((a, b) => b.votes - a.votes);
+
+  // Find impostors
+  const impostors = [];
+  if (room.playerRoles) {
+    for (const [name, role] of Object.entries(room.playerRoles)) {
+      if (role.isImpostor) impostors.push(name);
+    }
+  }
+
+  // Check if group got it right: the most voted player(s) match impostors
+  const maxVotes = sorted[0]?.votes || 0;
+  const mostVoted = sorted.filter(s => s.votes === maxVotes).map(s => s.name);
+  const gotItRight = impostors.length > 0 &&
+    impostors.every(imp => mostVoted.includes(imp)) &&
+    mostVoted.length === impostors.length;
+
+  const resultData = {
+    tallies: sorted,
+    impostors,
+    word: room.currentWord?.word || '???',
+    gotItRight,
+  };
+
+  for (const p of room.players) {
+    p.socket.emit('voting-results', {
+      ...resultData,
+      isHost: p.socket.id === room.host,
+    });
+  }
+
+  room.votingPhase = null;
+}
+
 // ── Periodic access check for connected players (every 30s) ──
 setInterval(() => {
   for (const [, s] of io.sockets.sockets) {
@@ -443,6 +493,74 @@ io.on('connection', (socket) => {
       });
       room.pendingRound = null;
     }, 3500);
+  });
+
+  // ── Voting System ──
+  socket.on('start-voting', () => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.host !== socket.id) return;
+    if (room.gameState !== 'playing') return;
+
+    room.gameState = 'voting';
+    room.votingPhase = {
+      votes: {},       // playerName -> [target1, target2]
+      confirmed: [],   // playerNames who voted
+    };
+
+    const playerNames = room.players.map(p => p.name);
+    const votesNeeded = room.settings.impostorCount;
+
+    for (const p of room.players) {
+      p.socket.emit('voting-started', {
+        players: playerNames,
+        votesNeeded,
+        myName: p.name,
+      });
+    }
+  });
+
+  socket.on('cast-vote', ({ targets }, cb) => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.gameState !== 'voting' || !room.votingPhase) return cb?.({ error: 'Votação não ativa.' });
+
+    const playerName = socket.playerName;
+    if (room.votingPhase.confirmed.includes(playerName)) return cb?.({ error: 'Você já votou.' });
+
+    // Validate
+    const votesNeeded = room.settings.impostorCount;
+    if (!targets || targets.length !== votesNeeded) return cb?.({ error: `Selecione ${votesNeeded} jogador(es).` });
+    if (targets.includes(playerName)) return cb?.({ error: 'Você não pode votar em si mesmo.' });
+
+    const validNames = room.players.map(p => p.name);
+    for (const t of targets) {
+      if (!validNames.includes(t)) return cb?.({ error: 'Jogador inválido.' });
+    }
+
+    room.votingPhase.votes[playerName] = targets;
+    room.votingPhase.confirmed.push(playerName);
+
+    cb?.({ ok: true });
+
+    // Broadcast progress
+    for (const p of room.players) {
+      p.socket.emit('voting-progress', {
+        confirmed: room.votingPhase.confirmed.length,
+        total: room.players.length,
+      });
+    }
+
+    // Check if everyone voted
+    if (room.votingPhase.confirmed.length >= room.players.length) {
+      broadcastVotingResults(room);
+    }
+  });
+
+  socket.on('end-voting', () => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.host !== socket.id) return;
+    if (room.gameState !== 'voting') return;
+
+    broadcastVotingResults(room);
   });
 
   socket.on('back-to-lobby', () => {

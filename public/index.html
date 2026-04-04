@@ -431,6 +431,218 @@
       margin-top: 16px;
     }
 
+    /* ── Voting Screen ── */
+    .vote-subtitle {
+      font-size: 14px;
+      color: #888;
+      text-align: center;
+      max-width: 300px;
+    }
+
+    .vote-list {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .vote-item {
+      padding: 14px 16px;
+      background: #12122a;
+      border: 2px solid #222;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 15px;
+    }
+
+    .vote-item.selected {
+      border-color: #ff4444;
+      background: #1a1020;
+    }
+
+    .vote-item:active {
+      transform: scale(0.98);
+    }
+
+    .vote-check {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #333;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      font-size: 12px;
+    }
+
+    .vote-item.selected .vote-check {
+      border-color: #ff4444;
+      background: #ff4444;
+      color: #fff;
+    }
+
+    .vote-counter {
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+    }
+
+    .vote-progress {
+      font-size: 12px;
+      color: #555;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    .btn-vote-confirm {
+      width: 100%;
+      max-width: 340px;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #ff4444, #ff6600);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-vote-confirm:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn-vote-confirm:not(:disabled):active {
+      transform: scale(0.96);
+    }
+
+    .voted-msg {
+      font-size: 14px;
+      color: #44cc44;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    /* ── Results Screen ── */
+    .results-word {
+      font-size: 14px;
+      color: #888;
+      letter-spacing: 1px;
+    }
+
+    .results-word-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ff8800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .results-verdict {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 12px 24px;
+      border-radius: 12px;
+    }
+
+    .results-verdict.correct {
+      color: #44cc44;
+      background: rgba(68, 204, 68, 0.1);
+      border: 1px solid rgba(68, 204, 68, 0.2);
+    }
+
+    .results-verdict.wrong {
+      color: #ff4444;
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid rgba(255, 68, 68, 0.2);
+    }
+
+    .results-list {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .result-item {
+      padding: 12px 16px;
+      background: #12122a;
+      border: 2px solid #222;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .result-item.is-impostor {
+      border-color: #ff4444;
+      background: #1a0a0a;
+    }
+
+    .result-name {
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .result-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .result-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .result-badge.impostor {
+      background: rgba(255, 68, 68, 0.2);
+      color: #ff4444;
+    }
+
+    .result-badge.top-voted {
+      background: rgba(255, 170, 0, 0.2);
+      color: #ffaa00;
+    }
+
+    .result-votes {
+      font-size: 20px;
+      font-weight: 900;
+      color: #ff8800;
+      min-width: 30px;
+      text-align: right;
+    }
+
+    .result-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .result-bar {
+      height: 100%;
+      background: linear-gradient(to right, #ff4444, #ff8800);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
     /* ── Confirm Modal ── */
     .confirm-overlay {
       display: none;
@@ -754,13 +966,59 @@
 
     <!-- Host controls during game -->
     <div class="host-controls" id="host-controls" style="display:none">
-      <button class="btn btn-outline" onclick="newRound()">Nova Rodada</button>
+      <button class="btn btn-primary" onclick="startVoting()">Iniciar Votação</button>
       <button class="btn btn-secondary" onclick="backToLobby()">Configurações</button>
       <button class="btn btn-ghost" onclick="closeRoom()">Encerrar Sala</button>
     </div>
 
     <!-- Non-host message -->
     <div id="player-game-footer" style="display:none; margin-top:16px">
+      <span class="waiting-text">Aguardando próxima rodada...</span>
+    </div>
+  </div>
+
+  <!-- ══ VOTING ══ -->
+  <div id="voting" class="screen">
+    <div class="section-title">Votação</div>
+    <span class="vote-subtitle" id="vote-subtitle">Selecione 1 jogador que você acha que é o impostor</span>
+
+    <div class="vote-list" id="vote-list"></div>
+
+    <span class="vote-counter" id="vote-counter">0 de 1 selecionado(s)</span>
+    <button class="btn-vote-confirm" id="btn-vote-confirm" disabled onclick="confirmVote()">Confirmar Voto</button>
+
+    <span class="vote-progress" id="vote-progress">0 de 0 votaram</span>
+
+    <div class="voted-msg" id="voted-msg" style="display:none">Voto registrado! Aguardando os demais...</div>
+
+    <!-- Host: force end voting -->
+    <div id="vote-host-controls" style="display:none; margin-top:12px">
+      <button class="btn btn-ghost" onclick="endVoting()">Encerrar Votação</button>
+    </div>
+  </div>
+
+  <!-- ══ RESULTS ══ -->
+  <div id="results" class="screen">
+    <div class="section-title">Resultado</div>
+
+    <div style="text-align:center">
+      <span class="results-word">A palavra era</span>
+      <div class="results-word-value" id="results-word"></div>
+    </div>
+
+    <div class="results-verdict" id="results-verdict"></div>
+
+    <div class="results-list" id="results-list"></div>
+
+    <!-- Host controls -->
+    <div class="host-controls" id="results-host-controls" style="display:none">
+      <button class="btn btn-outline" onclick="newRound()">Nova Rodada</button>
+      <button class="btn btn-secondary" onclick="backToLobby()">Configurações</button>
+      <button class="btn btn-ghost" onclick="closeRoom()">Encerrar Sala</button>
+    </div>
+
+    <!-- Non-host -->
+    <div id="results-player-footer" style="display:none; margin-top:12px">
       <span class="waiting-text">Aguardando próxima rodada...</span>
     </div>
   </div>
@@ -1171,6 +1429,144 @@
       document.getElementById('confirm-overlay').classList.remove('active');
       confirmCallback = null;
     }
+
+    // ── Voting System ──
+    let votesNeeded = 1;
+    let selectedVotes = [];
+    let hasVoted = false;
+
+    function startVoting() {
+      socket.emit('start-voting');
+    }
+
+    socket.on('voting-started', (data) => {
+      votesNeeded = data.votesNeeded;
+      selectedVotes = [];
+      hasVoted = false;
+
+      const subtitle = document.getElementById('vote-subtitle');
+      subtitle.textContent = `Selecione ${votesNeeded} jogador${votesNeeded > 1 ? 'es' : ''} que você acha que ${votesNeeded > 1 ? 'são impostores' : 'é o impostor'}`;
+
+      // Build vote list (exclude self)
+      const listEl = document.getElementById('vote-list');
+      listEl.innerHTML = data.players
+        .filter(name => name !== data.myName)
+        .map(name => `
+          <div class="vote-item" id="vote-${name}" onclick="toggleVote('${name}')">
+            <span>${name}</span>
+            <div class="vote-check" id="check-${name}"></div>
+          </div>
+        `).join('');
+
+      updateVoteUI();
+
+      document.getElementById('voted-msg').style.display = 'none';
+      document.getElementById('btn-vote-confirm').style.display = 'block';
+      document.getElementById('vote-list').style.pointerEvents = 'auto';
+      document.getElementById('vote-host-controls').style.display = isHost ? 'block' : 'none';
+      document.getElementById('vote-progress').textContent = '0 de ' + data.players.length + ' votaram';
+
+      showScreen('voting');
+    });
+
+    function toggleVote(name) {
+      if (hasVoted) return;
+      const idx = selectedVotes.indexOf(name);
+      if (idx >= 0) {
+        selectedVotes.splice(idx, 1);
+      } else {
+        if (selectedVotes.length >= votesNeeded) {
+          // Remove first selection
+          const removed = selectedVotes.shift();
+          document.getElementById('vote-' + removed)?.classList.remove('selected');
+          document.getElementById('check-' + removed).textContent = '';
+        }
+        selectedVotes.push(name);
+      }
+      updateVoteUI();
+    }
+
+    function updateVoteUI() {
+      // Update visual
+      document.querySelectorAll('.vote-item').forEach(el => {
+        const name = el.id.replace('vote-', '');
+        const isSelected = selectedVotes.includes(name);
+        el.classList.toggle('selected', isSelected);
+        document.getElementById('check-' + name).textContent = isSelected ? '✓' : '';
+      });
+
+      document.getElementById('vote-counter').textContent =
+        `${selectedVotes.length} de ${votesNeeded} selecionado${votesNeeded > 1 ? 's' : ''}`;
+
+      document.getElementById('btn-vote-confirm').disabled = selectedVotes.length !== votesNeeded;
+    }
+
+    function confirmVote() {
+      if (selectedVotes.length !== votesNeeded || hasVoted) return;
+
+      socket.emit('cast-vote', { targets: [...selectedVotes] }, (res) => {
+        if (res?.error) {
+          alert(res.error);
+          return;
+        }
+        hasVoted = true;
+        document.getElementById('btn-vote-confirm').style.display = 'none';
+        document.getElementById('voted-msg').style.display = 'block';
+        document.getElementById('vote-list').style.pointerEvents = 'none';
+      });
+    }
+
+    socket.on('voting-progress', ({ confirmed, total }) => {
+      document.getElementById('vote-progress').textContent = `${confirmed} de ${total} votaram`;
+    });
+
+    function endVoting() {
+      socket.emit('end-voting');
+    }
+
+    // ── Results ──
+    socket.on('voting-results', (data) => {
+      isHost = data.isHost;
+
+      document.getElementById('results-word').textContent = data.word;
+
+      const verdictEl = document.getElementById('results-verdict');
+      if (data.gotItRight) {
+        verdictEl.textContent = 'O grupo acertou!';
+        verdictEl.className = 'results-verdict correct';
+      } else {
+        verdictEl.textContent = 'O impostor escapou!';
+        verdictEl.className = 'results-verdict wrong';
+      }
+
+      const maxVotes = data.tallies[0]?.votes || 1;
+      const listEl = document.getElementById('results-list');
+      listEl.innerHTML = data.tallies.map(t => {
+        const isImp = data.impostors.includes(t.name);
+        const isTop = t.votes === maxVotes && t.votes > 0;
+        let badges = '';
+        if (isImp) badges += '<span class="result-badge impostor">IMPOSTOR</span>';
+        if (isTop) badges += '<span class="result-badge top-voted">MAIS VOTADO</span>';
+
+        const pct = maxVotes > 0 ? (t.votes / maxVotes) * 100 : 0;
+
+        return `<div class="result-item ${isImp ? 'is-impostor' : ''}">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span class="result-name">${t.name}</span>
+              <div class="result-badges">${badges}</div>
+            </div>
+            <div class="result-bar-wrap"><div class="result-bar" style="width:${pct}%"></div></div>
+          </div>
+          <span class="result-votes">${t.votes}</span>
+        </div>`;
+      }).join('');
+
+      document.getElementById('results-host-controls').style.display = isHost ? 'flex' : 'none';
+      document.getElementById('results-player-footer').style.display = isHost ? 'none' : 'block';
+
+      showScreen('results');
+    });
 
     // ── Host Game Controls ──
     function newRound() {
