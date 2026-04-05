@@ -256,11 +256,29 @@ io.on('connection', (socket) => {
     socket.roomId = session.roomId; socket.playerName = session.playerName; socket.sessionId = sessionId;
     if (room.host === '__disconnected_' + session.playerName) room.host = socket.id;
     if (room.players[0]?.socket.id === socket.id) room.host = socket.id;
-    if (room.gameState === 'playing' && room.playerRoles?.[session.playerName]) {
+    const amHost = room.host === socket.id;
+
+    // Restore to correct game state
+    if ((room.gameState === 'playing' || room.gameState === 'voting' || room.gameState === 'results') && room.playerRoles?.[session.playerName]) {
       const role = room.playerRoles[session.playerName];
       cb({ ok: true, screen: 'game', roomCode: formatRoomId(session.roomId),
         gameData: { playerName: session.playerName, isImpostor: role.isImpostor, word: role.word, hint: role.hint },
-        isHost: room.host === socket.id });
+        isHost: amHost });
+
+      // If voting is active, re-send voting state
+      if (room.gameState === 'voting' && room.votingPhase) {
+        const playerNames = room.players.map(p => p.name);
+        socket.emit('voting-started', {
+          players: playerNames,
+          votesNeeded: room.settings.impostorCount,
+          myName: session.playerName,
+        });
+        // Send current progress
+        socket.emit('voting-progress', {
+          confirmed: room.votingPhase.confirmed.length,
+          total: room.players.length,
+        });
+      }
     } else {
       cb({ ok: true, screen: 'lobby', roomCode: formatRoomId(session.roomId) });
       broadcastLobby(session.roomId);
