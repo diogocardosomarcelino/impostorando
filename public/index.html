@@ -850,6 +850,74 @@
       display: block;
     }
 
+    /* ── Result Reveal Overlay ── */
+    .result-reveal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000000;
+      z-index: 110;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .result-reveal-overlay.active {
+      display: flex;
+    }
+
+    .result-reveal-img {
+      width: 0;
+      height: auto;
+      max-width: 280px;
+      opacity: 0;
+      animation: revealZoom 1.5s ease-out forwards;
+    }
+
+    @keyframes revealZoom {
+      0% { width: 0; opacity: 0; transform: scale(0.3) rotate(-10deg); }
+      50% { opacity: 1; transform: scale(1.15) rotate(3deg); }
+      70% { transform: scale(0.95) rotate(-1deg); }
+      100% { width: 260px; opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .result-reveal-text {
+      font-size: 0;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: revealText 0.8s ease-out 1s forwards;
+    }
+
+    @keyframes revealText {
+      0% { font-size: 0; opacity: 0; transform: translateY(20px); }
+      100% { font-size: 24px; opacity: 1; transform: translateY(0); }
+    }
+
+    .result-reveal-text.correct {
+      color: #44cc44;
+      text-shadow: 0 0 30px rgba(68, 204, 68, 0.5);
+    }
+
+    .result-reveal-text.wrong {
+      color: #ff4444;
+      text-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
+    }
+
+    .result-reveal-sub {
+      font-size: 0;
+      color: #666;
+      opacity: 0;
+      animation: revealSub 0.6s ease-out 1.5s forwards;
+    }
+
+    @keyframes revealSub {
+      0% { font-size: 0; opacity: 0; }
+      100% { font-size: 14px; opacity: 1; }
+    }
+
     /* ── Countdown Overlay ── */
     .countdown-overlay {
       display: none;
@@ -927,6 +995,13 @@
         <button class="btn btn-primary" onclick="confirmYes()">Sim</button>
       </div>
     </div>
+  </div>
+
+  <!-- ══ Result Reveal Overlay ══ -->
+  <div class="result-reveal-overlay" id="result-reveal-overlay">
+    <img class="result-reveal-img" id="result-reveal-img" src="">
+    <span class="result-reveal-text" id="result-reveal-text"></span>
+    <span class="result-reveal-sub" id="result-reveal-sub"></span>
   </div>
 
   <!-- ══ Countdown Overlay ══ -->
@@ -1709,7 +1784,53 @@
     }
 
     // ── Results ──
+    let pendingResultData = null;
+
     socket.on('voting-results', (data) => {
+      pendingResultData = data;
+
+      // Hide all screens
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+      // Show reveal animation
+      const overlay = document.getElementById('result-reveal-overlay');
+      const img = document.getElementById('result-reveal-img');
+      const text = document.getElementById('result-reveal-text');
+      const sub = document.getElementById('result-reveal-sub');
+
+      // Reset animations
+      img.style.animation = 'none';
+      text.style.animation = 'none';
+      sub.style.animation = 'none';
+      void img.offsetHeight; // Force reflow
+
+      if (data.gotItRight) {
+        img.src = '/assets/imp1.png';
+        text.textContent = 'Impostor capturado!';
+        text.className = 'result-reveal-text correct';
+        sub.textContent = 'O grupo acertou!';
+      } else {
+        img.src = '/assets/imp2.png';
+        text.textContent = 'Impostor escapou!';
+        text.className = 'result-reveal-text wrong';
+        sub.textContent = 'O impostor enganou todos!';
+      }
+
+      // Re-apply animations
+      img.style.animation = 'revealZoom 1.5s ease-out forwards';
+      text.style.animation = 'revealText 0.8s ease-out 1s forwards';
+      sub.style.animation = 'revealSub 0.6s ease-out 1.5s forwards';
+
+      overlay.classList.add('active');
+
+      // After 3.5s, show actual results
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        showResultsScreen(pendingResultData);
+      }, 3500);
+    });
+
+    function showResultsScreen(data) {
       isHost = data.isHost;
 
       document.getElementById('results-word').textContent = data.word;
@@ -1750,7 +1871,7 @@
       document.getElementById('results-player-footer').style.display = isHost ? 'none' : 'block';
 
       showScreen('results');
-    });
+    }
 
     // ── Host Game Controls ──
     function newRound() {
