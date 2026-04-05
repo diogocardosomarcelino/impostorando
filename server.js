@@ -163,18 +163,38 @@ async function pickWord() {
   return wordBank[Math.floor(Math.random() * wordBank.length)];
 }
 
-function assignRoles(playerCount, impostorCount) {
-  // Fisher-Yates shuffle for truly random distribution
+function assignRoles(playerCount, impostorCount, previousImpostorIndices = []) {
+  // Use crypto.randomInt for true randomness
   const allIndices = Array.from({ length: playerCount }, (_, i) => i);
+
+  // Fisher-Yates shuffle with crypto random
   for (let i = allIndices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = crypto.randomInt(0, i + 1);
     [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
   }
-  const roles = Array(playerCount).fill(false);
-  for (let i = 0; i < impostorCount; i++) {
-    roles[allIndices[i]] = true;
+
+  // Pick impostors, avoiding previous ones if possible
+  let candidates = allIndices.filter(idx => !previousImpostorIndices.includes(idx));
+
+  // If not enough non-previous candidates, use all
+  if (candidates.length < impostorCount) {
+    candidates = allIndices;
   }
-  return roles;
+
+  // Shuffle candidates again for extra randomness
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  const roles = Array(playerCount).fill(false);
+  const newImpostorIndices = [];
+  for (let i = 0; i < impostorCount; i++) {
+    roles[candidates[i]] = true;
+    newImpostorIndices.push(candidates[i]);
+  }
+
+  return { roles, impostorIndices: newImpostorIndices };
 }
 
 function broadcastLobby(roomId) {
@@ -192,13 +212,18 @@ function broadcastLobby(roomId) {
 function sendGameData(room) {
   const maxImpostors = Math.floor(room.players.length / 2) || 1;
   room.settings.impostorCount = Math.min(room.settings.impostorCount, maxImpostors);
-  const roles = assignRoles(room.players.length, room.settings.impostorCount);
+  const { roles, impostorIndices } = assignRoles(
+    room.players.length,
+    room.settings.impostorCount,
+    room.previousImpostorIndices || []
+  );
+  room.previousImpostorIndices = impostorIndices;
   room.playerRoles = {};
   room.players.forEach((p, i) => {
     const isImpostor = roles[i];
     room.playerRoles[p.name] = {
       isImpostor, word: isImpostor ? null : room.currentWord.word,
-      hint: isImpostor && room.settings.hintsEnabled ? room.currentWord.hints[Math.floor(Math.random() * room.currentWord.hints.length)] : null,
+      hint: isImpostor && room.settings.hintsEnabled ? room.currentWord.hints[crypto.randomInt(0, room.currentWord.hints.length)] : null,
     };
   });
   return room.playerRoles;
