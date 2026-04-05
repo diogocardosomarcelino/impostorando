@@ -1990,7 +1990,6 @@
         const isTop = t.votes === maxVotes && t.votes > 0;
         let badges = '';
         if (isImp) badges += '<span class="result-badge impostor">IMPOSTOR</span>';
-        if (isTop) badges += '<span class="result-badge top-voted">MAIS VOTADO</span>';
 
         const pct = maxVotes > 0 ? (t.votes / maxVotes) * 100 : 0;
 
