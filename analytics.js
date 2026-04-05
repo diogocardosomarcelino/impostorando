@@ -409,7 +409,7 @@ function getStats() {
       const limitMs = getFreeMinutes() * 60000;
       const isPaid = v.accessGrantedUntil && v.accessGrantedUntil > Date.now();
       const playerIsVip = isVip(v.fingerprint, v.ip);
-      const isBlocked = !isPaid && !playerIsVip && totalUsed >= limitMs;
+      const isBlocked = data.monetizationEnabled && !isPaid && !playerIsVip && totalUsed >= limitMs;
 
       return {
         fingerprint: v.fingerprint.slice(0, 12) + '...',
