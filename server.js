@@ -270,6 +270,28 @@ io.on('connection', (socket) => {
     socket.fingerprint = fingerprint;
     analytics.trackVisit(fingerprint, ip, meta || {});
 
+    // Geolocation by IP (async, non-blocking)
+    if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+      const cleanIp = ip.includes(',') ? ip.split(',')[0].trim() : ip;
+      const http = require('http');
+      http.get(`http://ip-api.com/json/${cleanIp}?fields=status,country,regionName,city`, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const geo = JSON.parse(data);
+            if (geo.status === 'success') {
+              analytics.trackGeo(fingerprint, {
+                city: geo.city,
+                state: geo.regionName,
+                country: geo.country,
+              });
+            }
+          } catch (e) {}
+        });
+      }).on('error', () => {});
+    }
+
     const access = analytics.checkAccess(fingerprint, ip);
     cb?.({
       ok: true,

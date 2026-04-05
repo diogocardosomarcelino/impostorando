@@ -1291,6 +1291,8 @@
           userAgent: navigator.userAgent,
           screenSize: screen.width + 'x' + screen.height,
           language: navigator.language,
+          referrer: document.referrer || 'direto',
+          deviceType: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : (/Tablet|iPad/i.test(navigator.userAgent) ? 'tablet' : 'desktop'),
         },
       }, (res) => {
         if (res?.access) {

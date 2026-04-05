@@ -99,6 +99,11 @@ function ensureVisitor(fingerprint) {
       userAgent: null,
       screenSize: null,
       language: null,
+      referrer: null,
+      deviceType: null,
+      city: null,
+      state: null,
+      country: null,
       accessGrantedUntil: null,
       sessionStart: null,
     };
@@ -121,6 +126,8 @@ function trackVisit(fingerprint, ip, meta = {}) {
   if (meta.userAgent) v.userAgent = meta.userAgent;
   if (meta.screenSize) v.screenSize = meta.screenSize;
   if (meta.language) v.language = meta.language;
+  if (meta.referrer) v.referrer = meta.referrer;
+  if (meta.deviceType) v.deviceType = meta.deviceType;
 
   // Hourly
   const hour = new Date().getHours();
@@ -138,6 +145,15 @@ function trackVisit(fingerprint, ip, meta = {}) {
   }
 
   return v;
+}
+
+function trackGeo(fingerprint, geo) {
+  const v = getVisitor(fingerprint);
+  if (v) {
+    if (geo.city) v.city = geo.city;
+    if (geo.state) v.state = geo.state;
+    if (geo.country) v.country = geo.country;
+  }
 }
 
 function trackDisconnect(fingerprint) {
@@ -414,6 +430,11 @@ function getStats() {
         userAgent: v.userAgent,
         screenSize: v.screenSize,
         language: v.language,
+        referrer: v.referrer,
+        deviceType: v.deviceType,
+        city: v.city,
+        state: v.state,
+        country: v.country,
       };
     });
 
@@ -456,6 +477,7 @@ initDefaultAdmin();
 
 module.exports = {
   trackVisit,
+  trackGeo,
   trackDisconnect,
   trackName,
   trackRoomCreated,

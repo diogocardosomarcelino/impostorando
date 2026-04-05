@@ -280,7 +280,7 @@
         <div class="page-header"><span class="page-title">Jogadores</span><button class="refresh-btn" onclick="loadStats()">Atualizar</button></div>
         <div class="search-bar"><input class="search-input" id="player-search" type="text" placeholder="Buscar por IP, nome..." oninput="filterPlayers()"></div>
         <div class="table-wrap">
-          <table><thead><tr><th>Status</th><th>IP</th><th>Nomes</th><th>Visitas</th><th>Tempo</th><th>Jogos</th><th>Último</th><th>Ações</th></tr></thead>
+          <table><thead><tr><th>Status</th><th>IP</th><th>Local</th><th>Nomes</th><th>Disp.</th><th>Origem</th><th>Visitas</th><th>Tempo</th><th>Jogos</th><th>Último</th><th>Ações</th></tr></thead>
           <tbody id="players-table"></tbody></table>
         </div>
       </div>
@@ -474,7 +474,7 @@
 
     function renderPlayersTable(visitors) {
       const tbody = document.getElementById('players-table');
-      if (!visitors.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">Nenhum visitante</td></tr>'; return; }
+      if (!visitors.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty-msg">Nenhum visitante</td></tr>'; return; }
       tbody.innerHTML = visitors.map(v => {
         let s = '';
         if (v.isOnline) s += '<span class="status-badge status-online">ON</span> ';
@@ -484,13 +484,16 @@
         else s += '<span class="status-badge status-free">FREE</span>';
         let a = v.isPaid ? `<button class="action-btn revoke" onclick="revokeAccess('${v.fullFingerprint}')">Revogar</button>` : `<button class="action-btn" onclick="grantAccess('${v.fullFingerprint}')">24h</button>`;
         if (!v.isVip) a += `<button class="action-btn vip" onclick="addVipByFp('${v.fullFingerprint}')">VIP</button>`;
-        return `<tr><td>${s}</td><td>${v.ip||'-'}</td><td>${v.names.join(', ')||'-'}</td><td>${v.totalVisits}</td><td>${formatMs(v.totalPlayTime)}</td><td>${v.gamesPlayed}</td><td>${timeAgo(v.lastSeen)}</td><td>${a}</td></tr>`;
+        const loc = [v.city, v.state].filter(Boolean).join(', ') || '-';
+        const dev = v.deviceType === 'mobile' ? '📱' : v.deviceType === 'tablet' ? '📋' : v.deviceType === 'desktop' ? '💻' : '-';
+        const ref = v.referrer ? (v.referrer === 'direto' ? 'Direto' : v.referrer.replace(/https?:\/\/(www\.)?/, '').split('/')[0].slice(0, 20)) : '-';
+        return `<tr><td>${s}</td><td>${v.ip||'-'}</td><td>${loc}</td><td>${v.names.join(', ')||'-'}</td><td>${dev}</td><td>${ref}</td><td>${v.totalVisits}</td><td>${formatMs(v.totalPlayTime)}</td><td>${v.gamesPlayed}</td><td>${timeAgo(v.lastSeen)}</td><td>${a}</td></tr>`;
       }).join('');
     }
 
     function filterPlayers() {
       const q = document.getElementById('player-search').value.toLowerCase().trim();
-      renderPlayersTable(q ? allVisitors.filter(v => (v.ip||'').includes(q) || v.names.some(n => n.toLowerCase().includes(q)) || v.fullFingerprint.toLowerCase().includes(q)) : allVisitors);
+      renderPlayersTable(q ? allVisitors.filter(v => (v.ip||'').includes(q) || v.names.some(n => n.toLowerCase().includes(q)) || v.fullFingerprint.toLowerCase().includes(q) || (v.city||'').toLowerCase().includes(q) || (v.state||'').toLowerCase().includes(q)) : allVisitors);
     }
 
     function renderVipList(ips) {
