@@ -1038,7 +1038,7 @@
     <div class="section-title">Criar Sala</div>
     <div class="form-group">
       <span class="form-label">Seu nome</span>
-      <input class="form-input" id="create-name" type="text" placeholder="Ex: João" maxlength="20" autocomplete="off">
+      <input class="form-input" id="create-name" type="text" placeholder="Ex: JOÃO" maxlength="20" autocomplete="off" style="text-transform:uppercase">
     </div>
     <div class="form-group">
       <span class="form-label">Senha da sala (4 dígitos)</span>
@@ -1054,7 +1054,7 @@
     <div class="section-title">Entrar na Sala</div>
     <div class="form-group">
       <span class="form-label">Seu nome</span>
-      <input class="form-input" id="join-name" type="text" placeholder="Ex: Maria" maxlength="20" autocomplete="off">
+      <input class="form-input" id="join-name" type="text" placeholder="Ex: MARIA" maxlength="20" autocomplete="off" style="text-transform:uppercase">
     </div>
     <div class="form-group">
       <span class="form-label">Número da sala (4 dígitos)</span>
@@ -1371,7 +1371,7 @@
 
     // ── Create Room ──
     function createRoom() {
-      const name = document.getElementById('create-name').value.trim();
+      const name = document.getElementById('create-name').value.trim().toUpperCase();
       const password = document.getElementById('create-password').value.trim();
       const errorEl = document.getElementById('create-error');
 
@@ -1390,7 +1390,7 @@
 
     // ── Join Room ──
     function joinRoom() {
-      const name = document.getElementById('join-name').value.trim();
+      const name = document.getElementById('join-name').value.trim().toUpperCase();
       const roomCode = document.getElementById('join-room-code').value.trim();
       const password = document.getElementById('join-password').value.trim();
       const errorEl = document.getElementById('join-error');
