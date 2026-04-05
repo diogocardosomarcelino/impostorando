@@ -969,9 +969,9 @@
       <img src="/assets/logo.png" alt="IMPOSTOR" class="logo-img">
     </div>
 
-    <div class="settings" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:24px">
-      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px">
-        <span class="form-label">Jogadores</span>
+    <div class="settings" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:24px;align-items:center">
+      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%">
+        <span class="form-label" style="text-align:center">Jogadores</span>
         <div class="counter">
           <button class="counter-btn" onclick="localAdjustPlayers(-1)">−</button>
           <span class="counter-value" id="local-player-count">4</span>
@@ -979,8 +979,8 @@
         </div>
       </div>
 
-      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px">
-        <span class="form-label">Impostores</span>
+      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%">
+        <span class="form-label" style="text-align:center">Impostores</span>
         <div class="counter">
           <button class="counter-btn" onclick="localAdjustImpostors(-1)">−</button>
           <span class="counter-value" id="local-impostor-count">1</span>
@@ -988,7 +988,7 @@
         </div>
       </div>
 
-      <div class="toggle-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+      <div class="toggle-row" style="display:flex;align-items:center;justify-content:center;gap:16px;padding:12px 0;width:100%">
         <span style="font-size:16px;color:#ccc">Dica para o impostor</span>
         <div class="toggle" id="local-hint-toggle" onclick="localToggleHint()">
           <div class="knob"></div>
