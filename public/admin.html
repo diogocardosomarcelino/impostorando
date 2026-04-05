@@ -528,9 +528,8 @@
           ? '<span class="role-badge role-superadmin">SUPERADMIN</span>'
           : '<span class="role-badge role-admin">ADMIN</span>';
         const lastLogin = u.lastLogin ? timeAgo(u.lastLogin) : 'nunca';
-        const actions = u.role !== 'superadmin'
-          ? `<button class="action-btn revoke" onclick="deleteUser('${u.id}')">Remover</button>`
-          : '';
+        let actions = `<button class="action-btn" onclick="changePassword('${u.id}', '${u.username}')">Senha</button>`;
+        if (u.role !== 'superadmin') actions += `<button class="action-btn revoke" onclick="deleteUser('${u.id}')">Remover</button>`;
         return `<div class="user-card">
           <div class="user-card-info">
             <div class="user-card-name">${u.name} ${roleBadge}</div>
@@ -556,6 +555,14 @@
         document.getElementById('new-user-password').value = '';
         loadUsers();
       } catch (e) { errorEl.textContent = 'Erro ao criar usuário.'; }
+    }
+
+    async function changePassword(id, username) {
+      const newPass = prompt(`Nova senha para @${username}:`);
+      if (!newPass) return;
+      const res = await api('/api/admin/users/' + id + '/password', { method: 'POST', body: JSON.stringify({ password: newPass }) });
+      if (res.error) { alert(res.error); return; }
+      alert('Senha alterada com sucesso!');
     }
 
     async function deleteUser(id) {
