@@ -121,13 +121,44 @@ app.post('/api/admin/users/:id/password', verifyAdmin, async (req, res) => {
   res.json(result);
 });
 
+// ── Words CRUD ──
+app.get('/api/admin/words', verifyAdmin, async (req, res) => {
+  const { search, limit, offset } = req.query;
+  res.json(await analytics.getWords(search || '', parseInt(limit) || 50, parseInt(offset) || 0));
+});
+
+app.post('/api/admin/words', verifyAdmin, async (req, res) => {
+  const { word, hints, category } = req.body;
+  if (!word || !hints || !Array.isArray(hints) || hints.length === 0) return res.status(400).json({ error: 'Palavra e pelo menos 1 dica obrigatórios.' });
+  const result = await analytics.addWord(word.trim(), hints.map(h => h.trim()).filter(Boolean), category || '');
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.put('/api/admin/words/:id', verifyAdmin, async (req, res) => {
+  const { word, hints, category } = req.body;
+  if (!word || !hints || !Array.isArray(hints) || hints.length === 0) return res.status(400).json({ error: 'Palavra e pelo menos 1 dica obrigatórios.' });
+  const result = await analytics.updateWord(parseInt(req.params.id), word.trim(), hints.map(h => h.trim()).filter(Boolean), category || '');
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
+});
+
+app.delete('/api/admin/words/:id', verifyAdmin, async (req, res) => {
+  res.json(await analytics.deleteWord(parseInt(req.params.id)));
+});
+
 // ── Room State ──
 const rooms = new Map();
 let nextRoomId = 1;
 const sessions = new Map();
 
 function formatRoomId(id) { return String(id).padStart(4, '0'); }
-function pickWord() { return wordBank[Math.floor(Math.random() * wordBank.length)]; }
+async function pickWord() {
+  const dbWord = await analytics.getRandomWord();
+  if (dbWord) return dbWord;
+  // Fallback to file if DB empty
+  return wordBank[Math.floor(Math.random() * wordBank.length)];
+}
 
 function assignRoles(playerCount, impostorCount) {
   // Fisher-Yates shuffle for truly random distribution
@@ -327,7 +358,7 @@ io.on('connection', (socket) => {
   socket.on('start-game', async () => {
     const room = rooms.get(socket.roomId);
     if (!room || room.host !== socket.id || room.players.length < 3) return;
-    room.gameState = 'playing'; room.currentWord = pickWord();
+    room.gameState = 'playing'; room.currentWord = await pickWord();
     const playerRoles = sendGameData(room);
     for (const p of room.players) {
       const role = playerRoles[p.name];
@@ -336,11 +367,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('new-round', () => {
+  socket.on('new-round', async () => {
     const room = rooms.get(socket.roomId);
     if (!room || room.host !== socket.id) return;
     room.gameState = 'playing';
-    room.currentWord = pickWord();
+    room.currentWord = await pickWord();
     const playerRoles = sendGameData(room);
     for (const p of room.players) p.socket.emit('countdown-start');
     room.pendingRound = playerRoles;

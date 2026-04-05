@@ -216,6 +216,20 @@
     .create-form input:focus { border-color: #ff4444; }
     .create-form input::placeholder { color: #444; }
 
+    /* Word cards */
+    .word-card {
+      background: #12122a; border: 1px solid #1a1a35; border-radius: 10px;
+      padding: 14px 16px; margin-bottom: 8px;
+    }
+    .word-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .word-card-word { font-size: 16px; font-weight: 700; color: #ff8800; text-transform: uppercase; }
+    .word-card-hints { display: flex; flex-direction: column; gap: 3px; }
+    .word-card-hint { font-size: 12px; color: #888; padding-left: 12px; }
+    .word-card-hint::before { content: '•'; margin-right: 6px; color: #555; }
+    .word-edit-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #1a1a35; }
+    .word-edit-form input { padding: 8px 12px; border: 1px solid #333; border-radius: 6px; background: #000; color: #fff; font-size: 13px; outline: none; }
+    .word-edit-form input:focus { border-color: #ff4444; }
+
     /* Password Modal */
     .modal-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200;
@@ -276,6 +290,7 @@
       <div class="nav-item active" onclick="showPage('dashboard', this)"><span class="nav-icon">📊</span><span>Dashboard</span></div>
       <div class="nav-item" onclick="showPage('players', this)"><span class="nav-icon">👥</span><span>Jogadores</span></div>
       <div class="nav-item" onclick="showPage('settings', this)"><span class="nav-icon">⚙️</span><span>Configurações</span></div>
+      <div class="nav-item" onclick="showPage('words', this)"><span class="nav-icon">📝</span><span>Palavras</span></div>
       <div class="nav-item" onclick="showPage('users', this)"><span class="nav-icon">🔑</span><span>Usuários</span></div>
 
       <div class="sidebar-footer">
@@ -347,6 +362,35 @@
           <div class="settings-group-title">Acesso VIP por IP</div>
           <div style="display:flex;gap:8px"><input class="search-input" id="input-vip-ip" type="text" placeholder="Ex: 192.168.1.100" style="flex:1"><button class="search-btn" onclick="addVipIp()">Liberar</button></div>
           <div id="vip-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- PALAVRAS -->
+      <div id="page-words" class="page">
+        <div class="page-header"><span class="page-title">Palavras</span><span style="font-size:13px;color:#555" id="words-total">0 palavras</span></div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Adicionar palavra</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <input class="search-input" id="new-word" type="text" placeholder="Palavra" style="text-transform:uppercase">
+            <input class="search-input" id="new-hint1" type="text" placeholder="Dica 1 (obrigatória)">
+            <input class="search-input" id="new-hint2" type="text" placeholder="Dica 2 (opcional)">
+            <input class="search-input" id="new-hint3" type="text" placeholder="Dica 3 (opcional)">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="search-btn" onclick="addNewWord()">Adicionar</button>
+              <span class="login-error" id="word-error" style="flex:1"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="search-bar"><input class="search-input" id="word-search" type="text" placeholder="Buscar palavra..." oninput="searchWords()"></div>
+
+        <div id="words-list"></div>
+
+        <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
+          <button class="action-btn" id="words-prev" onclick="wordsPage(-1)" style="display:none">Anterior</button>
+          <span style="font-size:12px;color:#555" id="words-page-info"></span>
+          <button class="action-btn" id="words-next" onclick="wordsPage(1)" style="display:none">Próxima</button>
         </div>
       </div>
 
@@ -431,6 +475,7 @@
       if (currentUser) document.getElementById('sidebar-user').textContent = currentUser.name || currentUser.username;
       loadStats();
       loadUsers();
+      loadWords();
     }
 
     // Try auto-login on load
@@ -655,6 +700,112 @@
       if (!confirm('Remover este usuário?')) return;
       await api('/api/admin/users/' + id, { method: 'DELETE' });
       loadUsers();
+    }
+
+    // ── Words ──
+    let wordsOffset = 0;
+    const WORDS_LIMIT = 30;
+    let wordsData = { words: [], total: 0 };
+
+    async function loadWords(search = '') {
+      try {
+        const q = search || document.getElementById('word-search')?.value || '';
+        wordsData = await api(`/api/admin/words?search=${encodeURIComponent(q)}&limit=${WORDS_LIMIT}&offset=${wordsOffset}`);
+        renderWords();
+      } catch (e) {}
+    }
+
+    function renderWords() {
+      document.getElementById('words-total').textContent = wordsData.total + ' palavras';
+      const el = document.getElementById('words-list');
+      if (!wordsData.words.length) {
+        el.innerHTML = '<div style="text-align:center;color:#555;padding:24px">Nenhuma palavra encontrada</div>';
+      } else {
+        el.innerHTML = wordsData.words.map(w => `
+          <div class="word-card" id="wcard-${w.id}">
+            <div class="word-card-header">
+              <span class="word-card-word">${w.word}</span>
+              <div style="display:flex;gap:4px">
+                <button class="action-btn" onclick="editWord(${w.id})">Editar</button>
+                <button class="action-btn revoke" onclick="removeWord(${w.id})">Excluir</button>
+              </div>
+            </div>
+            <div class="word-card-hints">
+              ${w.hints.map(h => `<span class="word-card-hint">${h}</span>`).join('')}
+            </div>
+            <div class="word-edit-form" id="wedit-${w.id}" style="display:none">
+              <input id="wedit-word-${w.id}" type="text" value="${w.word}" placeholder="Palavra" style="text-transform:uppercase">
+              <input id="wedit-h1-${w.id}" type="text" value="${w.hints[0] || ''}" placeholder="Dica 1">
+              <input id="wedit-h2-${w.id}" type="text" value="${w.hints[1] || ''}" placeholder="Dica 2">
+              <input id="wedit-h3-${w.id}" type="text" value="${w.hints[2] || ''}" placeholder="Dica 3">
+              <div style="display:flex;gap:8px">
+                <button class="search-btn" onclick="saveWord(${w.id})">Salvar</button>
+                <button class="action-btn" onclick="document.getElementById('wedit-${w.id}').style.display='none'">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Pagination
+      const totalPages = Math.ceil(wordsData.total / WORDS_LIMIT);
+      const currentPage = Math.floor(wordsOffset / WORDS_LIMIT) + 1;
+      document.getElementById('words-prev').style.display = wordsOffset > 0 ? 'inline-block' : 'none';
+      document.getElementById('words-next').style.display = (wordsOffset + WORDS_LIMIT) < wordsData.total ? 'inline-block' : 'none';
+      document.getElementById('words-page-info').textContent = totalPages > 1 ? `Página ${currentPage} de ${totalPages}` : '';
+    }
+
+    function wordsPage(dir) {
+      wordsOffset = Math.max(0, wordsOffset + (dir * WORDS_LIMIT));
+      loadWords();
+    }
+
+    function searchWords() {
+      wordsOffset = 0;
+      loadWords();
+    }
+
+    async function addNewWord() {
+      const word = document.getElementById('new-word').value.trim().toUpperCase();
+      const h1 = document.getElementById('new-hint1').value.trim();
+      const h2 = document.getElementById('new-hint2').value.trim();
+      const h3 = document.getElementById('new-hint3').value.trim();
+      const errorEl = document.getElementById('word-error');
+
+      if (!word) { errorEl.textContent = 'Digite a palavra.'; return; }
+      if (!h1) { errorEl.textContent = 'Pelo menos 1 dica.'; return; }
+
+      const hints = [h1, h2, h3].filter(Boolean);
+      const res = await api('/api/admin/words', { method: 'POST', body: JSON.stringify({ word, hints }) });
+      if (res.error) { errorEl.textContent = res.error; return; }
+
+      errorEl.textContent = '';
+      document.getElementById('new-word').value = '';
+      document.getElementById('new-hint1').value = '';
+      document.getElementById('new-hint2').value = '';
+      document.getElementById('new-hint3').value = '';
+      loadWords();
+    }
+
+    function editWord(id) {
+      document.getElementById('wedit-' + id).style.display = 'flex';
+    }
+
+    async function saveWord(id) {
+      const word = document.getElementById('wedit-word-' + id).value.trim().toUpperCase();
+      const h1 = document.getElementById('wedit-h1-' + id).value.trim();
+      const h2 = document.getElementById('wedit-h2-' + id).value.trim();
+      const h3 = document.getElementById('wedit-h3-' + id).value.trim();
+      if (!word || !h1) return;
+      const hints = [h1, h2, h3].filter(Boolean);
+      await api('/api/admin/words/' + id, { method: 'PUT', body: JSON.stringify({ word, hints }) });
+      loadWords();
+    }
+
+    async function removeWord(id) {
+      if (!confirm('Excluir esta palavra?')) return;
+      await api('/api/admin/words/' + id, { method: 'DELETE' });
+      loadWords();
     }
 
     // Auto-refresh

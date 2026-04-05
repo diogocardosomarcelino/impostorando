@@ -75,6 +75,14 @@ async function initDB() {
         games_played INT DEFAULT 0,
         peak_concurrent INT DEFAULT 0
       );
+
+      CREATE TABLE IF NOT EXISTS words (
+        id SERIAL PRIMARY KEY,
+        word TEXT NOT NULL,
+        hints TEXT[] DEFAULT '{}',
+        category TEXT DEFAULT '',
+        created_at BIGINT
+      );
     `);
 
     // Initialize hourly_activity rows
@@ -107,6 +115,23 @@ async function initDB() {
         `INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
         [key, value]
       );
+    }
+
+    // Seed words from words.js if table is empty
+    const wordCount = await client.query('SELECT COUNT(*) FROM words');
+    if (parseInt(wordCount.rows[0].count) === 0) {
+      try {
+        const wordBank = require('./words');
+        for (const w of wordBank) {
+          await client.query(
+            'INSERT INTO words (word, hints, category, created_at) VALUES ($1, $2, $3, $4)',
+            [w.word, w.hints, '', Date.now()]
+          );
+        }
+        console.log(`  [DB] ${wordBank.length} palavras importadas`);
+      } catch (e) {
+        console.log('  [DB] Sem arquivo words.js para importar');
+      }
     }
 
     console.log('  [DB] Banco de dados inicializado');
@@ -494,6 +519,60 @@ async function getStats() {
   };
 }
 
+// ── Words CRUD ──
+async function getWords(search = '', limit = 50, offset = 0) {
+  let query, params;
+  if (search) {
+    query = 'SELECT * FROM words WHERE LOWER(word) LIKE $1 ORDER BY word LIMIT $2 OFFSET $3';
+    params = [`%${search.toLowerCase()}%`, limit, offset];
+  } else {
+    query = 'SELECT * FROM words ORDER BY word LIMIT $1 OFFSET $2';
+    params = [limit, offset];
+  }
+  const res = await pool.query(query, params);
+  const countQuery = search
+    ? 'SELECT COUNT(*) FROM words WHERE LOWER(word) LIKE $1'
+    : 'SELECT COUNT(*) FROM words';
+  const countParams = search ? [`%${search.toLowerCase()}%`] : [];
+  const countRes = await pool.query(countQuery, countParams);
+  return {
+    words: res.rows.map(w => ({ id: w.id, word: w.word, hints: w.hints || [], category: w.category || '' })),
+    total: parseInt(countRes.rows[0].count),
+  };
+}
+
+async function addWord(word, hints, category = '') {
+  const existing = await pool.query('SELECT 1 FROM words WHERE LOWER(word) = LOWER($1)', [word]);
+  if (existing.rows.length > 0) return { error: 'Palavra já existe.' };
+  const res = await pool.query(
+    'INSERT INTO words (word, hints, category, created_at) VALUES ($1, $2, $3, $4) RETURNING id',
+    [word, hints, category, Date.now()]
+  );
+  return { ok: true, id: res.rows[0].id };
+}
+
+async function updateWord(id, word, hints, category) {
+  const res = await pool.query('SELECT 1 FROM words WHERE id = $1', [id]);
+  if (!res.rows[0]) return { error: 'Palavra não encontrada.' };
+  await pool.query(
+    'UPDATE words SET word = $2, hints = $3, category = $4 WHERE id = $1',
+    [id, word, hints, category || '']
+  );
+  return { ok: true };
+}
+
+async function deleteWord(id) {
+  await pool.query('DELETE FROM words WHERE id = $1', [id]);
+  return { ok: true };
+}
+
+async function getRandomWord() {
+  const res = await pool.query('SELECT * FROM words ORDER BY RANDOM() LIMIT 1');
+  if (!res.rows[0]) return null;
+  const w = res.rows[0];
+  return { word: w.word, hints: w.hints || [] };
+}
+
 module.exports = {
   initDB,
   trackVisit,
@@ -520,4 +599,9 @@ module.exports = {
   deleteAdminUser,
   changeAdminPassword,
   getStats,
+  getWords,
+  addWord,
+  updateWord,
+  deleteWord,
+  getRandomWord,
 };
