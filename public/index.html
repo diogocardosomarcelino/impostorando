@@ -1188,6 +1188,7 @@
     </div>
   </div>
 
+  <script src="/words.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -1774,19 +1775,7 @@
     let localWord = null;
     let localIsRevealing = false;
 
-    // Word bank (same as server)
-    const localWordBank = [
-      { word: "Banana", hint: "É uma fruta" },
-      { word: "Futebol", hint: "É um esporte" },
-      { word: "Guitarra", hint: "É um instrumento" },
-      { word: "Brasil", hint: "É um país" },
-      { word: "Pizza", hint: "É uma comida" },
-      { word: "Cachorro", hint: "É um animal" },
-      { word: "Médico", hint: "É uma profissão" },
-      { word: "Cinema", hint: "É um lugar" },
-      { word: "Violão", hint: "É um instrumento" },
-      { word: "Televisão", hint: "É um eletrônico" },
-    ];
+    // Word bank loaded from /words.js (wordBank global variable)
 
     function localAdjustPlayers(delta) {
       localPlayerCount = Math.max(3, Math.min(20, localPlayerCount + delta));
@@ -1811,7 +1800,7 @@
 
     function localStartGame() {
       // Pick word
-      localWord = localWordBank[Math.floor(Math.random() * localWordBank.length)];
+      localWord = wordBank[Math.floor(Math.random() * wordBank.length)];
 
       // Assign roles
       localRoles = Array(localPlayerCount).fill(false);
@@ -1861,7 +1850,7 @@
         document.getElementById('local-impostor-display').style.display = 'block';
         if (localHintsEnabled) {
           document.getElementById('local-hint-container').style.display = 'block';
-          document.getElementById('local-hint-display').textContent = localWord.hint;
+          document.getElementById('local-hint-display').textContent = localWord.hints[Math.floor(Math.random() * localWord.hints.length)];
         } else {
           document.getElementById('local-hint-container').style.display = 'none';
         }

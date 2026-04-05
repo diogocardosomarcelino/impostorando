@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const crypto = require('crypto');
 const analytics = require('./analytics');
+const wordBank = require('./words');
 
 const app = express();
 const server = http.createServer(app);
@@ -122,20 +123,6 @@ app.post('/api/admin/users/:id/password', verifyAdmin, (req, res) => {
   res.json(result);
 });
 
-// ── Word Bank ──
-const wordBank = [
-  { word: "Banana", hint: "É uma fruta" },
-  { word: "Futebol", hint: "É um esporte" },
-  { word: "Guitarra", hint: "É um instrumento" },
-  { word: "Brasil", hint: "É um país" },
-  { word: "Pizza", hint: "É uma comida" },
-  { word: "Cachorro", hint: "É um animal" },
-  { word: "Médico", hint: "É uma profissão" },
-  { word: "Cinema", hint: "É um lugar" },
-  { word: "Violão", hint: "É um instrumento" },
-  { word: "Televisão", hint: "É um eletrônico" },
-];
-
 // ── Room State ──
 const rooms = new Map();
 let nextRoomId = 1;
@@ -191,7 +178,7 @@ function sendGameData(room) {
     room.playerRoles[p.name] = {
       isImpostor,
       word: isImpostor ? null : room.currentWord.word,
-      hint: isImpostor && room.settings.hintsEnabled ? room.currentWord.hint : null,
+      hint: isImpostor && room.settings.hintsEnabled ? room.currentWord.hints[Math.floor(Math.random() * room.currentWord.hints.length)] : null,
     };
   });
 
