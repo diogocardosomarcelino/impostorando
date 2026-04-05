@@ -8,7 +8,10 @@ const wordBank = require('./words');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  pingInterval: 10000,
+  pingTimeout: 15000,
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -233,7 +236,9 @@ function broadcastVotingResults(room) {
   const gotItRight = impostors.length > 0 && impostors.every(imp => mostVoted.includes(imp)) && mostVoted.length === impostors.length;
   const resultData = { tallies: sorted, impostors, word: room.currentWord?.word || '???', gotItRight };
   for (const p of room.players) {
-    p.socket.emit('voting-results', { ...resultData, isHost: p.socket.id === room.host });
+    if (!p.disconnected) {
+      try { p.socket.emit('voting-results', { ...resultData, isHost: p.socket.id === room.host }); } catch (e) {}
+    }
   }
   room.votingPhase = null;
 }
@@ -283,7 +288,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(session.roomId);
     if (!room) { sessions.delete(sessionId); return cb({ ok: false }); }
     const existing = room.players.find(p => p.name === session.playerName);
-    if (existing) { existing.socket = socket; } else { room.players.push({ socket, name: session.playerName }); }
+    if (existing) { existing.socket = socket; existing.disconnected = false; } else { room.players.push({ socket, name: session.playerName }); }
     socket.roomId = session.roomId; socket.playerName = session.playerName; socket.sessionId = sessionId;
     if (room.host === '__disconnected_' + session.playerName) room.host = socket.id;
     if (room.players[0]?.socket.id === socket.id) room.host = socket.id;
@@ -363,7 +368,9 @@ io.on('connection', (socket) => {
     for (const p of room.players) {
       const role = playerRoles[p.name];
       if (p.socket.fingerprint) await analytics.trackGamePlayed(p.socket.fingerprint);
-      p.socket.emit('game-started', { playerName: p.name, isImpostor: role.isImpostor, word: role.word, hint: role.hint });
+      if (!p.disconnected) {
+        try { p.socket.emit('game-started', { playerName: p.name, isImpostor: role.isImpostor, word: role.word, hint: role.hint }); } catch (e) {}
+      }
     }
   });
 
@@ -373,7 +380,7 @@ io.on('connection', (socket) => {
     room.gameState = 'playing';
     room.currentWord = await pickWord();
     const playerRoles = sendGameData(room);
-    for (const p of room.players) p.socket.emit('countdown-start');
+    for (const p of room.players) { if (!p.disconnected) { try { p.socket.emit('countdown-start'); } catch (e) {} } }
     room.pendingRound = playerRoles;
     setTimeout(async () => {
       if (!rooms.has(room.id)) return;
@@ -394,8 +401,12 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id || room.gameState !== 'playing') return;
     room.gameState = 'voting';
     room.votingPhase = { votes: {}, confirmed: [] };
-    const playerNames = room.players.map(p => p.name);
-    for (const p of room.players) p.socket.emit('voting-started', { players: playerNames, votesNeeded: room.settings.impostorCount, myName: p.name });
+    const playerNames = room.players.filter(p => !p.disconnected).map(p => p.name);
+    for (const p of room.players) {
+      if (!p.disconnected) {
+        try { p.socket.emit('voting-started', { players: playerNames, votesNeeded: room.settings.impostorCount, myName: p.name }); } catch (e) {}
+      }
+    }
   });
 
   socket.on('cast-vote', ({ targets }, cb) => {
@@ -411,8 +422,9 @@ io.on('connection', (socket) => {
     room.votingPhase.votes[playerName] = targets;
     room.votingPhase.confirmed.push(playerName);
     cb?.({ ok: true });
-    for (const p of room.players) p.socket.emit('voting-progress', { confirmed: room.votingPhase.confirmed.length, total: room.players.length });
-    if (room.votingPhase.confirmed.length >= room.players.length) broadcastVotingResults(room);
+    const activePlayers = room.players.filter(p => !p.disconnected);
+    for (const p of activePlayers) p.socket.emit('voting-progress', { confirmed: room.votingPhase.confirmed.length, total: activePlayers.length });
+    if (room.votingPhase.confirmed.length >= activePlayers.length) broadcastVotingResults(room);
   });
 
   socket.on('end-voting', () => {
@@ -446,17 +458,35 @@ io.on('connection', (socket) => {
     if (!room) return;
     if (room.host === socket.id) room.host = '__disconnected_' + socket.playerName;
     const playerName = socket.playerName;
+
+    // During active game (playing/voting/results), keep player for 5 minutes
+    // During lobby, keep for 2 minutes
+    const isInGame = room.gameState === 'playing' || room.gameState === 'voting' || room.gameState === 'results';
+    const graceMs = isInGame ? 300000 : 120000; // 5min in game, 2min in lobby
+
     setTimeout(() => {
       const r = rooms.get(roomId);
       if (!r) return;
       const player = r.players.find(p => p.name === playerName);
+      // Only remove if the socket is STILL the old disconnected one (not replaced by reconnect)
       if (player && player.socket.id === socket.id) {
+        // In game, don't remove — just mark as disconnected
+        if (r.gameState === 'playing' || r.gameState === 'voting' || r.gameState === 'results') {
+          player.disconnected = true;
+          return; // Keep in player list for game continuity
+        }
         r.players = r.players.filter(p => p.name !== playerName);
         if (r.players.length === 0) { rooms.delete(roomId); }
-        else { if (r.host === '__disconnected_' + playerName) r.host = r.players[0].socket.id; broadcastLobby(roomId); }
+        else {
+          if (r.host === '__disconnected_' + playerName) r.host = r.players[0].socket.id;
+          broadcastLobby(roomId);
+        }
       }
-      if (socket.sessionId) { const sess = sessions.get(socket.sessionId); if (sess && !r?.players.find(p => p.name === playerName)) sessions.delete(socket.sessionId); }
-    }, 60000);
+      if (socket.sessionId) {
+        const sess = sessions.get(socket.sessionId);
+        if (sess && !r?.players.find(p => p.name === playerName)) sessions.delete(socket.sessionId);
+      }
+    }, graceMs);
   });
 });
 
