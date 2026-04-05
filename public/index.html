@@ -431,6 +431,76 @@
       margin-top: 16px;
     }
 
+    /* ── Mode Selection ── */
+    .mode-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 340px;
+    }
+
+    .mode-card {
+      background: #12122a;
+      border: 2px solid #222;
+      border-radius: 16px;
+      padding: 24px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mode-card:active {
+      transform: scale(0.97);
+    }
+
+    .mode-card:hover {
+      border-color: #ff4444;
+    }
+
+    .mode-icon {
+      font-size: 36px;
+      flex-shrink: 0;
+    }
+
+    .mode-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mode-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .mode-desc {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    /* ── Local Mode ── */
+    .local-progress {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .local-progress-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.3s;
+    }
+
+    .local-progress-dot.done { background: #ff4444; }
+    .local-progress-dot.current { background: #ff8800; }
+
     /* ── Voting Screen ── */
     .vote-subtitle {
       font-size: 14px;
@@ -856,8 +926,31 @@
     <span class="countdown-number" id="countdown-number">3</span>
   </div>
 
-  <!-- ══ HOME ══ -->
+  <!-- ══ HOME (Mode Selection) ══ -->
   <div id="home" class="screen active">
+    <div style="text-align:center">
+      <img src="/assets/logo.png" alt="IMPOSTOR" class="logo-img">
+    </div>
+    <div class="mode-cards">
+      <div class="mode-card" onclick="showScreen('home-online')">
+        <span class="mode-icon">📱</span>
+        <div class="mode-info">
+          <span class="mode-title">Cada um com seu celular</span>
+          <span class="mode-desc">Crie uma sala e cada jogador entra pelo seu próprio celular</span>
+        </div>
+      </div>
+      <div class="mode-card" onclick="showScreen('local-setup')">
+        <span class="mode-icon">📲</span>
+        <div class="mode-info">
+          <span class="mode-title">Somente um celular</span>
+          <span class="mode-desc">Um celular passa de mão em mão, cada um segura para ver seu papel</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HOME ONLINE ══ -->
+  <div id="home-online" class="screen">
     <div style="text-align:center">
       <img src="/assets/logo.png" alt="IMPOSTOR" class="logo-img">
       <div class="logo-sub">online</div>
@@ -866,6 +959,77 @@
       <button class="btn btn-primary" onclick="showScreen('create')">Criar Sala</button>
       <button class="btn btn-secondary" onclick="showScreen('join')">Entrar na Sala</button>
     </div>
+    <button class="btn btn-ghost" onclick="showScreen('home')">Voltar</button>
+  </div>
+
+  <!-- ══ LOCAL: SETUP ══ -->
+  <div id="local-setup" class="screen">
+    <div style="text-align:center">
+      <img src="/assets/logo.png" alt="IMPOSTOR" style="width:240px;max-width:70vw;height:auto">
+    </div>
+
+    <div class="settings" style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:24px">
+      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px">
+        <span class="form-label">Jogadores</span>
+        <div class="counter">
+          <button class="counter-btn" onclick="localAdjustPlayers(-1)">−</button>
+          <span class="counter-value" id="local-player-count">4</span>
+          <button class="counter-btn" onclick="localAdjustPlayers(1)">+</button>
+        </div>
+      </div>
+
+      <div class="setting-group" style="display:flex;flex-direction:column;gap:8px">
+        <span class="form-label">Impostores</span>
+        <div class="counter">
+          <button class="counter-btn" onclick="localAdjustImpostors(-1)">−</button>
+          <span class="counter-value" id="local-impostor-count">1</span>
+          <button class="counter-btn" onclick="localAdjustImpostors(1)">+</button>
+        </div>
+      </div>
+
+      <div class="toggle-row" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+        <span style="font-size:16px;color:#ccc">Dica para o impostor</span>
+        <div class="toggle" id="local-hint-toggle" onclick="localToggleHint()">
+          <div class="knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="max-width:320px" onclick="localStartGame()">Começar</button>
+    <button class="btn btn-ghost" onclick="showScreen('home')">Voltar</button>
+  </div>
+
+  <!-- ══ LOCAL: GAME ══ -->
+  <div id="local-game" class="screen">
+    <div class="card" id="local-card">
+      <span class="player-name-display">Jogador</span>
+      <span class="player-name-big" id="local-player-id">1</span>
+
+      <div class="hold-instruction" id="local-hold-instruction">
+        <span class="hold-icon">👆</span>
+        Segure para ver
+      </div>
+
+      <div class="revealed-content" id="local-revealed-content">
+        <span class="word-text" id="local-word-display"></span>
+        <span class="impostor-text" id="local-impostor-display">VOCÊ É O IMPOSTOR</span>
+        <div id="local-hint-container" style="display:none">
+          <span class="hint-label">Dica</span>
+          <span class="hint-text" id="local-hint-display"></span>
+        </div>
+      </div>
+
+      <div class="local-progress" id="local-progress"></div>
+    </div>
+  </div>
+
+  <!-- ══ LOCAL: END ══ -->
+  <div id="local-end" class="screen">
+    <div class="section-title" style="font-size:28px">Todos prontos!</div>
+    <span style="font-size:15px;color:#888;text-align:center;line-height:1.6">A rodada pode começar.<br>Descubram quem é o impostor!</span>
+    <button class="btn btn-outline" onclick="localStartGame()">Jogar Novamente</button>
+    <button class="btn btn-ghost" onclick="showScreen('local-setup')">Configurações</button>
+    <button class="btn btn-ghost" onclick="showScreen('home')">Início</button>
   </div>
 
   <!-- ══ CREATE ROOM ══ -->
@@ -1596,6 +1760,156 @@
       clearSession();
       showScreen('home');
     });
+
+    // ══════════════════════════════════════
+    // ── LOCAL MODE (single phone) ──
+    // ══════════════════════════════════════
+
+    let localPlayerCount = 4;
+    let localImpostorCount = 1;
+    let localHintsEnabled = false;
+    let localCurrentPlayer = 0;
+    let localRoles = [];
+    let localWord = null;
+    let localIsRevealing = false;
+
+    // Word bank (same as server)
+    const localWordBank = [
+      { word: "Banana", hint: "É uma fruta" },
+      { word: "Futebol", hint: "É um esporte" },
+      { word: "Guitarra", hint: "É um instrumento" },
+      { word: "Brasil", hint: "É um país" },
+      { word: "Pizza", hint: "É uma comida" },
+      { word: "Cachorro", hint: "É um animal" },
+      { word: "Médico", hint: "É uma profissão" },
+      { word: "Cinema", hint: "É um lugar" },
+      { word: "Violão", hint: "É um instrumento" },
+      { word: "Televisão", hint: "É um eletrônico" },
+    ];
+
+    function localAdjustPlayers(delta) {
+      localPlayerCount = Math.max(3, Math.min(20, localPlayerCount + delta));
+      document.getElementById('local-player-count').textContent = localPlayerCount;
+      const maxImp = Math.floor(localPlayerCount / 2);
+      if (localImpostorCount > maxImp) {
+        localImpostorCount = maxImp;
+        document.getElementById('local-impostor-count').textContent = localImpostorCount;
+      }
+    }
+
+    function localAdjustImpostors(delta) {
+      const maxImp = Math.floor(localPlayerCount / 2);
+      localImpostorCount = Math.max(1, Math.min(maxImp, localImpostorCount + delta));
+      document.getElementById('local-impostor-count').textContent = localImpostorCount;
+    }
+
+    function localToggleHint() {
+      localHintsEnabled = !localHintsEnabled;
+      document.getElementById('local-hint-toggle').classList.toggle('active', localHintsEnabled);
+    }
+
+    function localStartGame() {
+      // Pick word
+      localWord = localWordBank[Math.floor(Math.random() * localWordBank.length)];
+
+      // Assign roles
+      localRoles = Array(localPlayerCount).fill(false);
+      const indices = [];
+      while (indices.length < localImpostorCount) {
+        const idx = Math.floor(Math.random() * localPlayerCount);
+        if (!indices.includes(idx)) {
+          indices.push(idx);
+          localRoles[idx] = true;
+        }
+      }
+
+      localCurrentPlayer = 0;
+      showScreen('local-game');
+      localRenderCard();
+    }
+
+    function localRenderCard() {
+      const card = document.getElementById('local-card');
+      card.classList.remove('impostor-reveal', 'word-reveal');
+      document.getElementById('local-player-id').textContent = localCurrentPlayer + 1;
+      document.getElementById('local-hold-instruction').style.display = 'flex';
+      document.getElementById('local-revealed-content').style.display = 'none';
+
+      // Progress dots
+      const progressEl = document.getElementById('local-progress');
+      progressEl.innerHTML = '';
+      for (let i = 0; i < localPlayerCount; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'local-progress-dot';
+        if (i < localCurrentPlayer) dot.classList.add('done');
+        if (i === localCurrentPlayer) dot.classList.add('current');
+        progressEl.appendChild(dot);
+      }
+    }
+
+    function localRevealRole() {
+      const card = document.getElementById('local-card');
+      const isImpostor = localRoles[localCurrentPlayer];
+
+      document.getElementById('local-hold-instruction').style.display = 'none';
+      document.getElementById('local-revealed-content').style.display = 'flex';
+
+      if (isImpostor) {
+        card.classList.add('impostor-reveal');
+        document.getElementById('local-word-display').style.display = 'none';
+        document.getElementById('local-impostor-display').style.display = 'block';
+        if (localHintsEnabled) {
+          document.getElementById('local-hint-container').style.display = 'block';
+          document.getElementById('local-hint-display').textContent = localWord.hint;
+        } else {
+          document.getElementById('local-hint-container').style.display = 'none';
+        }
+      } else {
+        card.classList.add('word-reveal');
+        document.getElementById('local-word-display').style.display = 'block';
+        document.getElementById('local-word-display').textContent = localWord.word;
+        document.getElementById('local-impostor-display').style.display = 'none';
+        document.getElementById('local-hint-container').style.display = 'none';
+      }
+    }
+
+    function localHideRole() {
+      localCurrentPlayer++;
+      if (localCurrentPlayer >= localPlayerCount) {
+        showScreen('local-end');
+      } else {
+        localRenderCard();
+      }
+    }
+
+    // Hold-to-reveal for local card
+    (function () {
+      const card = document.getElementById('local-card');
+      let holdActive = false;
+
+      function onStart(e) {
+        e.preventDefault();
+        if (holdActive || localIsRevealing) return;
+        holdActive = true;
+        localIsRevealing = true;
+        localRevealRole();
+      }
+
+      function onEnd(e) {
+        e.preventDefault();
+        if (!holdActive) return;
+        holdActive = false;
+        localIsRevealing = false;
+        localHideRole();
+      }
+
+      card.addEventListener('touchstart', onStart, { passive: false });
+      card.addEventListener('touchend', onEnd, { passive: false });
+      card.addEventListener('touchcancel', onEnd, { passive: false });
+      card.addEventListener('mousedown', onStart);
+      card.addEventListener('mouseup', onEnd);
+      card.addEventListener('mouseleave', (e) => { if (holdActive) onEnd(e); });
+    })();
   </script>
 </body>
 </html>
