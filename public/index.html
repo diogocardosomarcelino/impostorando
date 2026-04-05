@@ -1472,6 +1472,9 @@
 
     // ── Countdown ──
     socket.on('countdown-start', () => {
+      // Hide results/game screens immediately so they don't flash
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
       const overlay = document.getElementById('countdown-overlay');
       const numberEl = document.getElementById('countdown-number');
 
