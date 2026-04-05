@@ -1,232 +1,284 @@
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 const crypto = require('crypto');
 
-const DATA_FILE = path.join(__dirname, 'data', 'analytics.json');
-const FREE_MINUTES = parseInt(process.env.FREE_MINUTES) || 20;
+const FREE_MINUTES_DEFAULT = parseInt(process.env.FREE_MINUTES) || 20;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('railway') ? { rejectUnauthorized: false } : false,
+});
 
 function hashPassword(pw) {
   return crypto.createHash('sha256').update(pw).digest('hex');
 }
 
-// ── Default data structure ──
-function createDefaultData() {
-  return {
-    visitors: {},        // keyed by fingerprint
-    hourlyActivity: new Array(24).fill(0),
-    dailyStats: {},      // keyed by "YYYY-MM-DD"
-    totalRoomsCreated: 0,
-    totalGamesPlayed: 0,
-    monetizationEnabled: false,
-    freeMinutes: null,      // null = use env default
-    price: '5,00',
-    pixKey: 'sua-chave-pix@email.com',
-    vipIps: [],
-    vipFingerprints: [],
-    adminUsers: [],         // { id, username, name, passwordHash, role, createdAt }
-  };
-}
-
-// ── Load / Save ──
-let data = createDefaultData();
-
-function load() {
+// ── Initialize Database ──
+async function initDB() {
+  const client = await pool.connect();
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      data = { ...createDefaultData(), ...parsed };
-      console.log(`  [Analytics] Dados carregados: ${Object.keys(data.visitors).length} visitantes`);
-    } else {
-      save();
-      console.log('  [Analytics] Arquivo criado');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS visitors (
+        fingerprint TEXT PRIMARY KEY,
+        ip TEXT,
+        names TEXT[] DEFAULT '{}',
+        first_seen BIGINT,
+        last_seen BIGINT,
+        total_visits INT DEFAULT 0,
+        total_play_time BIGINT DEFAULT 0,
+        games_played INT DEFAULT 0,
+        rooms_created INT DEFAULT 0,
+        user_agent TEXT,
+        screen_size TEXT,
+        language TEXT,
+        referrer TEXT,
+        device_type TEXT,
+        city TEXT,
+        state TEXT,
+        country TEXT,
+        access_granted_until BIGINT,
+        session_start BIGINT
+      );
+
+      CREATE TABLE IF NOT EXISTS config (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        name TEXT,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'admin',
+        created_at BIGINT,
+        last_login BIGINT
+      );
+
+      CREATE TABLE IF NOT EXISTS vip_ips (
+        ip TEXT PRIMARY KEY
+      );
+
+      CREATE TABLE IF NOT EXISTS vip_fingerprints (
+        fingerprint TEXT PRIMARY KEY
+      );
+
+      CREATE TABLE IF NOT EXISTS hourly_activity (
+        hour INT PRIMARY KEY,
+        count INT DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS daily_stats (
+        date TEXT PRIMARY KEY,
+        visits INT DEFAULT 0,
+        unique_visitors INT DEFAULT 0,
+        rooms_created INT DEFAULT 0,
+        games_played INT DEFAULT 0,
+        peak_concurrent INT DEFAULT 0
+      );
+    `);
+
+    // Initialize hourly_activity rows
+    for (let h = 0; h < 24; h++) {
+      await client.query(
+        `INSERT INTO hourly_activity (hour, count) VALUES ($1, 0) ON CONFLICT (hour) DO NOTHING`,
+        [h]
+      );
     }
-  } catch (e) {
-    console.error('  [Analytics] Erro ao carregar:', e.message);
-    data = createDefaultData();
-  }
-}
 
-function save() {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (e) {
-    console.error('  [Analytics] Erro ao salvar:', e.message);
-  }
-}
+    // Initialize default admin if none exists
+    const adminCount = await client.query('SELECT COUNT(*) FROM admin_users');
+    if (parseInt(adminCount.rows[0].count) === 0) {
+      await client.query(
+        `INSERT INTO admin_users (id, username, name, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [crypto.randomUUID(), 'admin', 'Administrador', hashPassword('admin1234'), 'superadmin', Date.now()]
+      );
+      console.log('  [DB] Admin padrão criado: admin / admin1234');
+    }
 
-// Auto-save every 30 seconds
-setInterval(save, 30000);
-
-// ── Helpers ──
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function ensureDailyStats(dateKey) {
-  if (!data.dailyStats[dateKey]) {
-    data.dailyStats[dateKey] = {
-      visits: 0,
-      uniqueVisitors: new Set(),
-      roomsCreated: 0,
-      gamesPlayed: 0,
-      peakConcurrent: 0,
+    // Initialize default config
+    const defaults = {
+      monetization_enabled: 'false',
+      free_minutes: String(FREE_MINUTES_DEFAULT),
+      price: '5,00',
+      pix_key: 'sua-chave-pix@email.com',
     };
+    for (const [key, value] of Object.entries(defaults)) {
+      await client.query(
+        `INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
+        [key, value]
+      );
+    }
+
+    console.log('  [DB] Banco de dados inicializado');
+  } finally {
+    client.release();
   }
-  // Fix deserialization: Set might become array after JSON parse
-  if (!(data.dailyStats[dateKey].uniqueVisitors instanceof Set)) {
-    data.dailyStats[dateKey].uniqueVisitors = new Set(data.dailyStats[dateKey].uniqueVisitors || []);
-  }
-  return data.dailyStats[dateKey];
 }
 
-function getVisitor(fingerprint) {
-  return data.visitors[fingerprint] || null;
-}
-
-function ensureVisitor(fingerprint) {
-  if (!data.visitors[fingerprint]) {
-    data.visitors[fingerprint] = {
-      fingerprint,
-      ip: null,
-      names: [],
-      firstSeen: Date.now(),
-      lastSeen: Date.now(),
-      totalVisits: 0,
-      totalPlayTime: 0,
-      gamesPlayed: 0,
-      roomsCreated: 0,
-      userAgent: null,
-      screenSize: null,
-      language: null,
-      referrer: null,
-      deviceType: null,
-      city: null,
-      state: null,
-      country: null,
-      accessGrantedUntil: null,
-      sessionStart: null,
-    };
-  }
-  return data.visitors[fingerprint];
-}
-
-// ── Online tracking ──
+// ── Online tracking (in-memory, real-time only) ──
 let onlineSet = new Set();
 
-// ── Public API ──
+// ── Config helpers ──
+async function getConfigValue(key) {
+  const res = await pool.query('SELECT value FROM config WHERE key = $1', [key]);
+  return res.rows[0]?.value || null;
+}
 
-function trackVisit(fingerprint, ip, meta = {}) {
-  const v = ensureVisitor(fingerprint);
-  v.ip = ip;
-  v.lastSeen = Date.now();
-  v.totalVisits++;
-  v.sessionStart = Date.now();
+async function setConfigValue(key, value) {
+  await pool.query(
+    'INSERT INTO config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+    [key, String(value)]
+  );
+}
 
-  if (meta.userAgent) v.userAgent = meta.userAgent;
-  if (meta.screenSize) v.screenSize = meta.screenSize;
-  if (meta.language) v.language = meta.language;
-  if (meta.referrer) v.referrer = meta.referrer;
-  if (meta.deviceType) v.deviceType = meta.deviceType;
+async function getFreeMinutes() {
+  const val = await getConfigValue('free_minutes');
+  return parseInt(val) || FREE_MINUTES_DEFAULT;
+}
+
+// ── Visitors ──
+async function ensureVisitor(fingerprint) {
+  const res = await pool.query('SELECT * FROM visitors WHERE fingerprint = $1', [fingerprint]);
+  if (res.rows[0]) return res.rows[0];
+  await pool.query(
+    `INSERT INTO visitors (fingerprint, first_seen, last_seen, total_visits, total_play_time, games_played, rooms_created, names)
+     VALUES ($1, $2, $2, 0, 0, 0, 0, '{}') ON CONFLICT (fingerprint) DO NOTHING`,
+    [fingerprint, Date.now()]
+  );
+  const r2 = await pool.query('SELECT * FROM visitors WHERE fingerprint = $1', [fingerprint]);
+  return r2.rows[0];
+}
+
+async function trackVisit(fingerprint, ip, meta = {}) {
+  await ensureVisitor(fingerprint);
+  await pool.query(
+    `UPDATE visitors SET
+      ip = $2, last_seen = $3, total_visits = total_visits + 1, session_start = $3,
+      user_agent = COALESCE($4, user_agent),
+      screen_size = COALESCE($5, screen_size),
+      language = COALESCE($6, language),
+      referrer = COALESCE($7, referrer),
+      device_type = COALESCE($8, device_type)
+    WHERE fingerprint = $1`,
+    [fingerprint, ip, Date.now(), meta.userAgent || null, meta.screenSize || null,
+     meta.language || null, meta.referrer || null, meta.deviceType || null]
+  );
 
   // Hourly
   const hour = new Date().getHours();
-  data.hourlyActivity[hour]++;
+  await pool.query('UPDATE hourly_activity SET count = count + 1 WHERE hour = $1', [hour]);
 
   // Daily
-  const day = ensureDailyStats(todayKey());
-  day.visits++;
-  day.uniqueVisitors.add(fingerprint);
+  const today = new Date().toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO daily_stats (date, visits, unique_visitors, rooms_created, games_played, peak_concurrent)
+     VALUES ($1, 1, 1, 0, 0, 0)
+     ON CONFLICT (date) DO UPDATE SET visits = daily_stats.visits + 1`,
+    [today]
+  );
 
-  // Online
+  // Update unique visitors count
+  const uniqueToday = await pool.query(
+    `SELECT COUNT(*) FROM visitors WHERE last_seen >= $1`,
+    [new Date(today).getTime()]
+  );
+  await pool.query('UPDATE daily_stats SET unique_visitors = $1 WHERE date = $2', [uniqueToday.rows[0].count, today]);
+
+  // Online tracking
   onlineSet.add(fingerprint);
-  if (onlineSet.size > day.peakConcurrent) {
-    day.peakConcurrent = onlineSet.size;
-  }
-
-  return v;
+  const onlineCount = onlineSet.size;
+  await pool.query(
+    'UPDATE daily_stats SET peak_concurrent = GREATEST(peak_concurrent, $1) WHERE date = $2',
+    [onlineCount, today]
+  );
 }
 
-function trackGeo(fingerprint, geo) {
-  const v = getVisitor(fingerprint);
-  if (v) {
-    if (geo.city) v.city = geo.city;
-    if (geo.state) v.state = geo.state;
-    if (geo.country) v.country = geo.country;
-  }
+async function trackGeo(fingerprint, geo) {
+  await pool.query(
+    'UPDATE visitors SET city = $2, state = $3, country = $4 WHERE fingerprint = $1',
+    [fingerprint, geo.city || null, geo.state || null, geo.country || null]
+  );
 }
 
-function trackDisconnect(fingerprint) {
-  const v = getVisitor(fingerprint);
-  if (v && v.sessionStart) {
-    v.totalPlayTime += Date.now() - v.sessionStart;
-    v.sessionStart = null;
+async function trackDisconnect(fingerprint) {
+  const res = await pool.query('SELECT session_start, total_play_time FROM visitors WHERE fingerprint = $1', [fingerprint]);
+  if (res.rows[0]?.session_start) {
+    const elapsed = Date.now() - parseInt(res.rows[0].session_start);
+    await pool.query(
+      'UPDATE visitors SET total_play_time = total_play_time + $2, session_start = NULL WHERE fingerprint = $1',
+      [fingerprint, elapsed]
+    );
   }
   onlineSet.delete(fingerprint);
 }
 
-function trackName(fingerprint, name) {
-  const v = getVisitor(fingerprint);
-  if (v && name && !v.names.includes(name)) {
-    v.names.push(name);
-    if (v.names.length > 10) v.names = v.names.slice(-10);
-  }
+async function trackName(fingerprint, name) {
+  if (!name) return;
+  await pool.query(
+    `UPDATE visitors SET names = array_append(
+      CASE WHEN $2 = ANY(names) THEN names ELSE names END,
+      CASE WHEN $2 = ANY(names) THEN NULL ELSE $2 END
+    ) WHERE fingerprint = $1 AND NOT ($2 = ANY(names))`,
+    [fingerprint, name]
+  );
 }
 
-function trackRoomCreated(fingerprint) {
-  const v = getVisitor(fingerprint);
-  if (v) v.roomsCreated++;
-  data.totalRoomsCreated++;
-  const day = ensureDailyStats(todayKey());
-  day.roomsCreated++;
+async function trackRoomCreated(fingerprint) {
+  await pool.query('UPDATE visitors SET rooms_created = rooms_created + 1 WHERE fingerprint = $1', [fingerprint]);
+  const today = new Date().toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO daily_stats (date, visits, unique_visitors, rooms_created, games_played, peak_concurrent)
+     VALUES ($1, 0, 0, 1, 0, 0)
+     ON CONFLICT (date) DO UPDATE SET rooms_created = daily_stats.rooms_created + 1`,
+    [today]
+  );
 }
 
-function trackGamePlayed(fingerprint) {
-  const v = getVisitor(fingerprint);
-  if (v) v.gamesPlayed++;
-  data.totalGamesPlayed++;
-  const day = ensureDailyStats(todayKey());
-  day.gamesPlayed++;
+async function trackGamePlayed(fingerprint) {
+  await pool.query('UPDATE visitors SET games_played = games_played + 1 WHERE fingerprint = $1', [fingerprint]);
+  const today = new Date().toISOString().slice(0, 10);
+  await pool.query(
+    `INSERT INTO daily_stats (date, visits, unique_visitors, rooms_created, games_played, peak_concurrent)
+     VALUES ($1, 0, 0, 0, 1, 0)
+     ON CONFLICT (date) DO UPDATE SET games_played = daily_stats.games_played + 1`,
+    [today]
+  );
 }
 
-// ── Access control ──
-
-function getFreeMinutes() {
-  return data.freeMinutes || FREE_MINUTES;
-}
-
-function checkAccess(fingerprint, ip) {
-  // If monetization is off, everyone plays free
-  if (!data.monetizationEnabled) {
+// ── Access Control ──
+async function checkAccess(fingerprint, ip) {
+  const monetization = await getConfigValue('monetization_enabled');
+  if (monetization !== 'true') {
     return { allowed: true, remainingMs: null, free: true };
   }
 
-  // VIP fingerprint = unlimited
-  if (data.vipFingerprints.includes(fingerprint)) {
-    return { allowed: true, remainingMs: null, vip: true };
+  // VIP fingerprint
+  const vipFp = await pool.query('SELECT 1 FROM vip_fingerprints WHERE fingerprint = $1', [fingerprint]);
+  if (vipFp.rows.length > 0) return { allowed: true, remainingMs: null, vip: true };
+
+  // VIP IP
+  if (ip) {
+    const vipIp = await pool.query('SELECT 1 FROM vip_ips WHERE ip = $1', [ip]);
+    if (vipIp.rows.length > 0) return { allowed: true, remainingMs: null, vip: true };
   }
 
-  // VIP IP = unlimited
-  if (ip && data.vipIps.includes(ip)) {
-    return { allowed: true, remainingMs: null, vip: true };
+  const res = await pool.query('SELECT * FROM visitors WHERE fingerprint = $1', [fingerprint]);
+  const v = res.rows[0];
+  if (!v) {
+    const fm = await getFreeMinutes();
+    return { allowed: true, remainingMs: fm * 60000 };
   }
 
-  const v = getVisitor(fingerprint);
-  if (!v) return { allowed: true, remainingMs: getFreeMinutes() * 60000 };
-
-  // If paid access is valid
-  if (v.accessGrantedUntil && v.accessGrantedUntil > Date.now()) {
+  // Paid access
+  if (v.access_granted_until && parseInt(v.access_granted_until) > Date.now()) {
     return { allowed: true, paid: true, remainingMs: null };
   }
 
-  // Calculate current session time
   let currentSession = 0;
-  if (v.sessionStart) {
-    currentSession = Date.now() - v.sessionStart;
-  }
-
-  const totalUsed = v.totalPlayTime + currentSession;
-  const limitMs = getFreeMinutes() * 60000;
+  if (v.session_start) currentSession = Date.now() - parseInt(v.session_start);
+  const totalUsed = parseInt(v.total_play_time) + currentSession;
+  const fm = await getFreeMinutes();
+  const limitMs = fm * 60000;
 
   if (totalUsed >= limitMs) {
     return { allowed: false, remainingMs: 0, totalUsedMs: totalUsed };
@@ -235,247 +287,215 @@ function checkAccess(fingerprint, ip) {
   return { allowed: true, remainingMs: limitMs - totalUsed };
 }
 
-function grantAccess(fingerprint, hours = 24) {
-  const v = ensureVisitor(fingerprint);
-  v.accessGrantedUntil = Date.now() + (hours * 3600000);
-  save();
-  return v;
+async function grantAccess(fingerprint, hours = 24) {
+  await ensureVisitor(fingerprint);
+  await pool.query(
+    'UPDATE visitors SET access_granted_until = $2 WHERE fingerprint = $1',
+    [fingerprint, Date.now() + (hours * 3600000)]
+  );
 }
 
-function revokeAccess(fingerprint) {
-  const v = getVisitor(fingerprint);
-  if (v) {
-    v.accessGrantedUntil = null;
-    save();
-  }
+async function revokeAccess(fingerprint) {
+  await pool.query('UPDATE visitors SET access_granted_until = NULL WHERE fingerprint = $1', [fingerprint]);
 }
 
-// ── Monetization toggle ──
-
-function setMonetization(enabled) {
-  data.monetizationEnabled = !!enabled;
-  save();
+// ── Monetization ──
+async function setMonetization(enabled) {
+  await setConfigValue('monetization_enabled', enabled ? 'true' : 'false');
 }
 
-function isMonetizationEnabled() {
-  return data.monetizationEnabled;
+async function isMonetizationEnabled() {
+  return (await getConfigValue('monetization_enabled')) === 'true';
 }
 
 // ── Config ──
-
-function setConfig(cfg) {
-  if (cfg.freeMinutes !== undefined) data.freeMinutes = parseInt(cfg.freeMinutes) || null;
-  if (cfg.price !== undefined) data.price = String(cfg.price);
-  if (cfg.pixKey !== undefined) data.pixKey = String(cfg.pixKey);
-  save();
+async function setConfig(cfg) {
+  if (cfg.freeMinutes !== undefined) await setConfigValue('free_minutes', parseInt(cfg.freeMinutes) || FREE_MINUTES_DEFAULT);
+  if (cfg.price !== undefined) await setConfigValue('price', String(cfg.price));
+  if (cfg.pixKey !== undefined) await setConfigValue('pix_key', String(cfg.pixKey));
 }
 
-function getConfig() {
+async function getConfig() {
   return {
-    freeMinutes: getFreeMinutes(),
-    price: data.price || '5,00',
-    pixKey: data.pixKey || 'sua-chave-pix@email.com',
+    freeMinutes: await getFreeMinutes(),
+    price: (await getConfigValue('price')) || '5,00',
+    pixKey: (await getConfigValue('pix_key')) || 'sua-chave-pix@email.com',
   };
 }
 
 // ── VIP IPs ──
-
-function addVipIp(ip) {
-  if (!data.vipIps.includes(ip)) {
-    data.vipIps.push(ip);
-    save();
-  }
+async function addVipIp(ip) {
+  await pool.query('INSERT INTO vip_ips (ip) VALUES ($1) ON CONFLICT DO NOTHING', [ip]);
 }
 
-function removeVipIp(ip) {
-  data.vipIps = data.vipIps.filter(i => i !== ip);
-  save();
+async function removeVipIp(ip) {
+  await pool.query('DELETE FROM vip_ips WHERE ip = $1', [ip]);
 }
 
-function getVipIps() {
-  return data.vipIps || [];
+async function getVipIps() {
+  const res = await pool.query('SELECT ip FROM vip_ips');
+  return res.rows.map(r => r.ip);
 }
 
 // ── VIP Fingerprints ──
-
-function addVipFingerprint(fp) {
-  if (!data.vipFingerprints.includes(fp)) {
-    data.vipFingerprints.push(fp);
-    save();
-  }
+async function addVipFingerprint(fp) {
+  await pool.query('INSERT INTO vip_fingerprints (fingerprint) VALUES ($1) ON CONFLICT DO NOTHING', [fp]);
 }
 
-function isVip(fingerprint, ip) {
-  return data.vipFingerprints.includes(fingerprint) || (ip && data.vipIps.includes(ip));
+async function isVip(fingerprint, ip) {
+  const fp = await pool.query('SELECT 1 FROM vip_fingerprints WHERE fingerprint = $1', [fingerprint]);
+  if (fp.rows.length > 0) return true;
+  if (ip) {
+    const ipRes = await pool.query('SELECT 1 FROM vip_ips WHERE ip = $1', [ip]);
+    if (ipRes.rows.length > 0) return true;
+  }
+  return false;
 }
 
 // ── Admin Users ──
-
-function initDefaultAdmin() {
-  if (!data.adminUsers || data.adminUsers.length === 0) {
-    data.adminUsers = [{
-      id: crypto.randomUUID(),
-      username: 'admin',
-      name: 'Administrador',
-      passwordHash: hashPassword('admin1234'),
-      role: 'superadmin',
-      createdAt: Date.now(),
-    }];
-    save();
-  }
-}
-
-function authenticateAdmin(username, password) {
-  const user = (data.adminUsers || []).find(u => u.username === username);
+async function authenticateAdmin(username, password) {
+  const res = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username]);
+  const user = res.rows[0];
   if (!user) return null;
-  if (user.passwordHash !== hashPassword(password)) return null;
-  // Generate session token
+  if (user.password_hash !== hashPassword(password)) return null;
   const token = crypto.randomUUID();
-  user.lastLogin = Date.now();
-  save();
+  await pool.query('UPDATE admin_users SET last_login = $1 WHERE id = $2', [Date.now(), user.id]);
   return { token, user: { id: user.id, username: user.username, name: user.name, role: user.role } };
 }
 
-function getAdminUsers() {
-  return (data.adminUsers || []).map(u => ({
-    id: u.id,
-    username: u.username,
-    name: u.name,
-    role: u.role,
-    createdAt: u.createdAt,
-    lastLogin: u.lastLogin || null,
+async function getAdminUsers() {
+  const res = await pool.query('SELECT id, username, name, role, created_at, last_login FROM admin_users ORDER BY created_at');
+  return res.rows.map(u => ({
+    id: u.id, username: u.username, name: u.name, role: u.role,
+    createdAt: parseInt(u.created_at), lastLogin: u.last_login ? parseInt(u.last_login) : null,
   }));
 }
 
-function createAdminUser(username, name, password, role = 'admin') {
-  if ((data.adminUsers || []).some(u => u.username === username)) {
-    return { error: 'Username já existe.' };
-  }
-  const user = {
-    id: crypto.randomUUID(),
-    username,
-    name,
-    passwordHash: hashPassword(password),
-    role,
-    createdAt: Date.now(),
-  };
-  data.adminUsers.push(user);
-  save();
-  return { ok: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } };
+async function createAdminUser(username, name, password, role = 'admin') {
+  const existing = await pool.query('SELECT 1 FROM admin_users WHERE username = $1', [username]);
+  if (existing.rows.length > 0) return { error: 'Username já existe.' };
+  const id = crypto.randomUUID();
+  await pool.query(
+    'INSERT INTO admin_users (id, username, name, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    [id, username, name, hashPassword(password), role, Date.now()]
+  );
+  return { ok: true, user: { id, username, name, role } };
 }
 
-function deleteAdminUser(id) {
-  const user = (data.adminUsers || []).find(u => u.id === id);
-  if (!user) return { error: 'Usuário não encontrado.' };
-  if (user.role === 'superadmin') return { error: 'Não é possível remover o superadmin.' };
-  data.adminUsers = data.adminUsers.filter(u => u.id !== id);
-  save();
+async function deleteAdminUser(id) {
+  const res = await pool.query('SELECT role FROM admin_users WHERE id = $1', [id]);
+  if (!res.rows[0]) return { error: 'Usuário não encontrado.' };
+  if (res.rows[0].role === 'superadmin') return { error: 'Não é possível remover o superadmin.' };
+  await pool.query('DELETE FROM admin_users WHERE id = $1', [id]);
   return { ok: true };
 }
 
-function changeAdminPassword(id, newPassword) {
-  const user = (data.adminUsers || []).find(u => u.id === id);
-  if (!user) return { error: 'Usuário não encontrado.' };
-  user.passwordHash = hashPassword(newPassword);
-  save();
+async function changeAdminPassword(id, newPassword) {
+  const res = await pool.query('SELECT 1 FROM admin_users WHERE id = $1', [id]);
+  if (!res.rows[0]) return { error: 'Usuário não encontrado.' };
+  await pool.query('UPDATE admin_users SET password_hash = $2 WHERE id = $1', [id, hashPassword(newPassword)]);
   return { ok: true };
 }
 
-// ── Stats for admin ──
+// ── Stats ──
+async function getStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  const fm = await getFreeMinutes();
+  const monetization = (await getConfigValue('monetization_enabled')) === 'true';
 
-function getStats() {
-  const today = todayKey();
-  const dayStats = ensureDailyStats(today);
+  // Daily stats
+  const dayRes = await pool.query('SELECT * FROM daily_stats WHERE date = $1', [today]);
+  const day = dayRes.rows[0] || { visits: 0, unique_visitors: 0, rooms_created: 0, games_played: 0, peak_concurrent: 0 };
 
-  // Serialize Sets for JSON
-  const dailyStatsSerialized = {};
-  for (const [key, val] of Object.entries(data.dailyStats)) {
-    dailyStatsSerialized[key] = {
-      ...val,
-      uniqueVisitors: val.uniqueVisitors instanceof Set
-        ? val.uniqueVisitors.size
-        : (Array.isArray(val.uniqueVisitors) ? val.uniqueVisitors.length : 0),
+  // Hourly
+  const hourlyRes = await pool.query('SELECT hour, count FROM hourly_activity ORDER BY hour');
+  const hourlyActivity = new Array(24).fill(0);
+  hourlyRes.rows.forEach(r => { hourlyActivity[r.hour] = r.count; });
+
+  // Totals
+  const totalVisitors = await pool.query('SELECT COUNT(*) FROM visitors');
+  const totalGames = await pool.query('SELECT COALESCE(SUM(games_played), 0) as total FROM visitors');
+  const totalRooms = await pool.query('SELECT COALESCE(SUM(rooms_created), 0) as total FROM visitors');
+
+  // VIP data
+  const vipIpsRes = await pool.query('SELECT ip FROM vip_ips');
+  const vipFpsRes = await pool.query('SELECT fingerprint FROM vip_fingerprints');
+  const vipIps = vipIpsRes.rows.map(r => r.ip);
+  const vipFps = vipFpsRes.rows.map(r => r.fingerprint);
+
+  // Visitors (last 50)
+  const visitorsRes = await pool.query('SELECT * FROM visitors ORDER BY last_seen DESC LIMIT 50');
+  const visitors = visitorsRes.rows.map(v => {
+    let currentSession = 0;
+    if (v.session_start) currentSession = Date.now() - parseInt(v.session_start);
+    const totalUsed = parseInt(v.total_play_time) + currentSession;
+    const limitMs = fm * 60000;
+    const isPaid = v.access_granted_until && parseInt(v.access_granted_until) > Date.now();
+    const playerIsVip = vipFps.includes(v.fingerprint) || (v.ip && vipIps.includes(v.ip));
+    const isBlocked = monetization && !isPaid && !playerIsVip && totalUsed >= limitMs;
+
+    return {
+      fingerprint: v.fingerprint.slice(0, 12) + '...',
+      fullFingerprint: v.fingerprint,
+      ip: v.ip,
+      names: v.names || [],
+      firstSeen: parseInt(v.first_seen),
+      lastSeen: parseInt(v.last_seen),
+      totalVisits: v.total_visits,
+      totalPlayTime: parseInt(v.total_play_time) + currentSession,
+      gamesPlayed: v.games_played,
+      roomsCreated: v.rooms_created,
+      isOnline: onlineSet.has(v.fingerprint),
+      isPaid: !!isPaid,
+      isBlocked,
+      isVip: playerIsVip,
+      accessGrantedUntil: v.access_granted_until ? parseInt(v.access_granted_until) : null,
+      userAgent: v.user_agent,
+      screenSize: v.screen_size,
+      language: v.language,
+      referrer: v.referrer,
+      deviceType: v.device_type,
+      city: v.city,
+      state: v.state,
+      country: v.country,
     };
-  }
-
-  // Recent visitors (last 50, sorted by lastSeen)
-  const visitors = Object.values(data.visitors)
-    .sort((a, b) => b.lastSeen - a.lastSeen)
-    .slice(0, 50)
-    .map(v => {
-      let currentSession = 0;
-      if (v.sessionStart) currentSession = Date.now() - v.sessionStart;
-      const totalUsed = v.totalPlayTime + currentSession;
-      const limitMs = getFreeMinutes() * 60000;
-      const isPaid = v.accessGrantedUntil && v.accessGrantedUntil > Date.now();
-      const playerIsVip = isVip(v.fingerprint, v.ip);
-      const isBlocked = data.monetizationEnabled && !isPaid && !playerIsVip && totalUsed >= limitMs;
-
-      return {
-        fingerprint: v.fingerprint.slice(0, 12) + '...',
-        fullFingerprint: v.fingerprint,
-        ip: v.ip,
-        names: v.names,
-        firstSeen: v.firstSeen,
-        lastSeen: v.lastSeen,
-        totalVisits: v.totalVisits,
-        totalPlayTime: v.totalPlayTime + currentSession,
-        gamesPlayed: v.gamesPlayed,
-        roomsCreated: v.roomsCreated,
-        isOnline: onlineSet.has(v.fingerprint),
-        isPaid,
-        isBlocked,
-        isVip: playerIsVip,
-        accessGrantedUntil: v.accessGrantedUntil,
-        userAgent: v.userAgent,
-        screenSize: v.screenSize,
-        language: v.language,
-        referrer: v.referrer,
-        deviceType: v.deviceType,
-        city: v.city,
-        state: v.state,
-        country: v.country,
-      };
-    });
-
-  // Find peak hour
-  let peakHour = 0;
-  let peakCount = 0;
-  data.hourlyActivity.forEach((count, hour) => {
-    if (count > peakCount) { peakCount = count; peakHour = hour; }
   });
+
+  // Peak hour
+  let peakHour = 0, peakCount = 0;
+  hourlyActivity.forEach((count, hour) => { if (count > peakCount) { peakCount = count; peakHour = hour; } });
+
+  // Paid count
+  const paidRes = await pool.query('SELECT COUNT(*) FROM visitors WHERE access_granted_until > $1', [Date.now()]);
+
+  const price = (await getConfigValue('price')) || '5,00';
+  const pixKey = (await getConfigValue('pix_key')) || 'sua-chave-pix@email.com';
 
   return {
     online: onlineSet.size,
-    todayVisits: dayStats.visits,
-    todayUnique: dayStats.uniqueVisitors instanceof Set
-      ? dayStats.uniqueVisitors.size
-      : (Array.isArray(dayStats.uniqueVisitors) ? dayStats.uniqueVisitors.length : 0),
-    todayGames: dayStats.gamesPlayed,
-    todayRooms: dayStats.roomsCreated,
-    peakConcurrent: dayStats.peakConcurrent,
-    totalVisitors: Object.keys(data.visitors).length,
-    totalGames: data.totalGamesPlayed,
-    totalRooms: data.totalRoomsCreated,
-    hourlyActivity: data.hourlyActivity,
+    todayVisits: parseInt(day.visits),
+    todayUnique: parseInt(day.unique_visitors),
+    todayGames: parseInt(day.games_played),
+    todayRooms: parseInt(day.rooms_created),
+    peakConcurrent: parseInt(day.peak_concurrent),
+    totalVisitors: parseInt(totalVisitors.rows[0].count),
+    totalGames: parseInt(totalGames.rows[0].total),
+    totalRooms: parseInt(totalRooms.rows[0].total),
+    hourlyActivity,
     peakHour: `${String(peakHour).padStart(2, '0')}:00`,
-    dailyStats: dailyStatsSerialized,
     visitors,
-    freeMinutes: getFreeMinutes(),
-    price: data.price || '5,00',
-    pixKey: data.pixKey || 'sua-chave-pix@email.com',
-    vipIps: data.vipIps || [],
-    paidCount: Object.values(data.visitors).filter(v => v.accessGrantedUntil && v.accessGrantedUntil > Date.now()).length,
+    freeMinutes: fm,
+    price,
+    pixKey,
+    vipIps,
+    paidCount: parseInt(paidRes.rows[0].count),
     blockedCount: visitors.filter(v => v.isBlocked).length,
-    monetizationEnabled: data.monetizationEnabled,
+    monetizationEnabled: monetization,
   };
 }
 
-// ── Initialize ──
-load();
-initDefaultAdmin();
-
 module.exports = {
+  initDB,
   trackVisit,
   trackGeo,
   trackDisconnect,
@@ -500,5 +520,4 @@ module.exports = {
   deleteAdminUser,
   changeAdminPassword,
   getStats,
-  save,
 };
