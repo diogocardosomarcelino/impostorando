@@ -860,62 +860,161 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
+      gap: 16px;
+      overflow: hidden;
     }
 
     .result-reveal-overlay.active {
       display: flex;
+      animation: overlayFlash 0.6s ease-out;
+    }
+
+    @keyframes overlayFlash {
+      0% { background: #222; }
+      30% { background: #000; }
+      100% { background: #000; }
+    }
+
+    .result-reveal-overlay.correct-bg { background: radial-gradient(circle at center, rgba(68,204,68,0.08) 0%, #000 70%); }
+    .result-reveal-overlay.wrong-bg { background: radial-gradient(circle at center, rgba(255,68,68,0.08) 0%, #000 70%); }
+
+    .result-reveal-glow {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0;
+      animation: glowPulse 2.5s ease-in-out 0.3s forwards;
+    }
+
+    .result-reveal-glow.correct { background: rgba(68, 204, 68, 0.25); }
+    .result-reveal-glow.wrong { background: rgba(255, 68, 68, 0.25); }
+
+    @keyframes glowPulse {
+      0% { opacity: 0; transform: scale(0.5); }
+      40% { opacity: 1; transform: scale(1.2); }
+      60% { opacity: 0.7; transform: scale(1); }
+      80% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.6; transform: scale(1); }
     }
 
     .result-reveal-img {
-      width: 0;
+      width: 220px;
       height: auto;
-      max-width: 280px;
+      max-width: 65vw;
       opacity: 0;
-      animation: revealZoom 1.5s ease-out forwards;
+      position: relative;
+      z-index: 2;
+      filter: drop-shadow(0 0 0px transparent);
     }
 
-    @keyframes revealZoom {
-      0% { width: 0; opacity: 0; transform: scale(0.3) rotate(-10deg); }
-      50% { opacity: 1; transform: scale(1.15) rotate(3deg); }
-      70% { transform: scale(0.95) rotate(-1deg); }
-      100% { width: 260px; opacity: 1; transform: scale(1) rotate(0deg); }
+    .result-reveal-img.animate {
+      animation: imgReveal 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    .result-reveal-img.correct-glow {
+      filter: drop-shadow(0 0 25px rgba(68, 204, 68, 0.5));
+    }
+
+    .result-reveal-img.wrong-glow {
+      filter: drop-shadow(0 0 25px rgba(255, 68, 68, 0.5));
+    }
+
+    @keyframes imgReveal {
+      0% { opacity: 0; transform: scale(0) rotate(-20deg); }
+      40% { opacity: 1; transform: scale(1.3) rotate(5deg); }
+      55% { transform: scale(0.9) rotate(-3deg); }
+      70% { transform: scale(1.1) rotate(1deg); }
+      85% { transform: scale(0.98) rotate(0deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    .result-reveal-line {
+      width: 0;
+      height: 2px;
+      position: relative;
+      z-index: 2;
+      opacity: 0;
+    }
+
+    .result-reveal-line.animate {
+      animation: lineExpand 0.6s ease-out 1s forwards;
+    }
+
+    .result-reveal-line.correct { background: linear-gradient(90deg, transparent, #44cc44, transparent); }
+    .result-reveal-line.wrong { background: linear-gradient(90deg, transparent, #ff4444, transparent); }
+
+    @keyframes lineExpand {
+      0% { width: 0; opacity: 0; }
+      100% { width: 200px; opacity: 1; }
     }
 
     .result-reveal-text {
-      font-size: 0;
+      font-size: 24px;
       font-weight: 900;
       letter-spacing: 3px;
       text-transform: uppercase;
       opacity: 0;
-      animation: revealText 0.8s ease-out 1s forwards;
+      position: relative;
+      z-index: 2;
     }
 
-    @keyframes revealText {
-      0% { font-size: 0; opacity: 0; transform: translateY(20px); }
-      100% { font-size: 24px; opacity: 1; transform: translateY(0); }
+    .result-reveal-text.animate {
+      animation: textSlam 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 1.2s forwards;
+    }
+
+    @keyframes textSlam {
+      0% { opacity: 0; transform: scale(2) translateY(-10px); }
+      60% { opacity: 1; transform: scale(0.9) translateY(2px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     .result-reveal-text.correct {
       color: #44cc44;
-      text-shadow: 0 0 30px rgba(68, 204, 68, 0.5);
+      text-shadow: 0 0 40px rgba(68, 204, 68, 0.6), 0 0 80px rgba(68, 204, 68, 0.3);
     }
 
     .result-reveal-text.wrong {
       color: #ff4444;
-      text-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
+      text-shadow: 0 0 40px rgba(255, 68, 68, 0.6), 0 0 80px rgba(255, 68, 68, 0.3);
     }
 
     .result-reveal-sub {
-      font-size: 0;
-      color: #666;
+      font-size: 14px;
+      color: #888;
       opacity: 0;
-      animation: revealSub 0.6s ease-out 1.5s forwards;
+      position: relative;
+      z-index: 2;
+      letter-spacing: 1px;
     }
 
-    @keyframes revealSub {
-      0% { font-size: 0; opacity: 0; }
-      100% { font-size: 14px; opacity: 1; }
+    .result-reveal-sub.animate {
+      animation: subFade 0.5s ease-out 1.6s forwards;
+    }
+
+    @keyframes subFade {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Particles */
+    .reveal-particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      z-index: 1;
+      opacity: 0;
+    }
+
+    .reveal-particle.animate {
+      animation: particleFly 2s ease-out forwards;
+    }
+
+    @keyframes particleFly {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
     }
 
     /* ── Countdown Overlay ── */
@@ -999,7 +1098,10 @@
 
   <!-- ══ Result Reveal Overlay ══ -->
   <div class="result-reveal-overlay" id="result-reveal-overlay">
+    <div class="result-reveal-glow" id="result-reveal-glow"></div>
+    <div id="reveal-particles"></div>
     <img class="result-reveal-img" id="result-reveal-img" src="">
+    <div class="result-reveal-line" id="result-reveal-line"></div>
     <span class="result-reveal-text" id="result-reveal-text"></span>
     <span class="result-reveal-sub" id="result-reveal-sub"></span>
   </div>
@@ -1792,42 +1894,79 @@
       // Hide all screens
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
-      // Show reveal animation
       const overlay = document.getElementById('result-reveal-overlay');
+      const glow = document.getElementById('result-reveal-glow');
       const img = document.getElementById('result-reveal-img');
+      const line = document.getElementById('result-reveal-line');
       const text = document.getElementById('result-reveal-text');
       const sub = document.getElementById('result-reveal-sub');
+      const particles = document.getElementById('reveal-particles');
 
-      // Reset animations
-      img.style.animation = 'none';
-      text.style.animation = 'none';
-      sub.style.animation = 'none';
-      void img.offsetHeight; // Force reflow
+      // Reset everything
+      overlay.className = 'result-reveal-overlay';
+      img.className = 'result-reveal-img';
+      glow.className = 'result-reveal-glow';
+      line.className = 'result-reveal-line';
+      text.className = 'result-reveal-text';
+      sub.className = 'result-reveal-sub';
+      particles.innerHTML = '';
 
-      if (data.gotItRight) {
-        img.src = '/assets/imp1.png';
-        text.textContent = 'Impostor capturado!';
-        text.className = 'result-reveal-text correct';
-        sub.textContent = 'O grupo acertou!';
-      } else {
-        img.src = '/assets/imp2.png';
-        text.textContent = 'Impostor escapou!';
-        text.className = 'result-reveal-text wrong';
-        sub.textContent = 'O impostor enganou todos!';
+      const type = data.gotItRight ? 'correct' : 'wrong';
+      const color = data.gotItRight ? '#44cc44' : '#ff4444';
+
+      img.src = data.gotItRight ? '/assets/imp1.png' : '/assets/imp2.png';
+      text.textContent = data.gotItRight ? 'Impostor capturado!' : 'Impostor escapou!';
+      sub.textContent = data.gotItRight ? 'O grupo desmascarou o impostor!' : 'O impostor enganou todos!';
+
+      // Apply type classes
+      overlay.classList.add('active', type + '-bg');
+      glow.classList.add(type);
+
+      // Create particles
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'reveal-particle';
+        p.style.background = color;
+        p.style.left = '50%';
+        p.style.top = '50%';
+        p.style.width = (3 + Math.random() * 5) + 'px';
+        p.style.height = p.style.width;
+        p.style.setProperty('--px', (Math.random() - 0.5) * 400 + 'px');
+        p.style.setProperty('--py', (Math.random() - 0.5) * 400 + 'px');
+        p.style.animationDelay = (0.8 + Math.random() * 0.5) + 's';
+        particles.appendChild(p);
       }
 
-      // Re-apply animations
-      img.style.animation = 'revealZoom 1.5s ease-out forwards';
-      text.style.animation = 'revealText 0.8s ease-out 1s forwards';
-      sub.style.animation = 'revealSub 0.6s ease-out 1.5s forwards';
+      // Stagger animations
+      requestAnimationFrame(() => {
+        glow.classList.add(type);
+        glow.style.animation = 'glowPulse 2.5s ease-in-out 0.3s forwards';
 
-      overlay.classList.add('active');
+        setTimeout(() => {
+          img.classList.add('animate', type + '-glow');
+        }, 200);
 
-      // After 3.5s, show actual results
+        setTimeout(() => {
+          line.classList.add('animate', type);
+        }, 1000);
+
+        setTimeout(() => {
+          text.classList.add('animate', type);
+          // Trigger particles
+          particles.querySelectorAll('.reveal-particle').forEach(p => p.classList.add('animate'));
+        }, 1200);
+
+        setTimeout(() => {
+          sub.classList.add('animate');
+        }, 1600);
+      });
+
+      // After 4s, show actual results
       setTimeout(() => {
         overlay.classList.remove('active');
+        overlay.className = 'result-reveal-overlay';
         showResultsScreen(pendingResultData);
-      }, 3500);
+      }, 4000);
     });
 
     function showResultsScreen(data) {
