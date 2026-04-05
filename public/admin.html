@@ -216,6 +216,30 @@
     .create-form input:focus { border-color: #ff4444; }
     .create-form input::placeholder { color: #444; }
 
+    /* Password Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: #12122a; border: 1px solid #1a1a35; border-radius: 16px;
+      padding: 28px 24px; width: 100%; max-width: 340px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; text-align: center; color: #ccc; }
+    .modal-input {
+      width: 100%; padding: 12px 14px; border: 1px solid #333; border-radius: 8px;
+      background: #000; color: #fff; font-size: 14px; outline: none;
+    }
+    .modal-input:focus { border-color: #ff4444; }
+    .modal-input::placeholder { color: #444; }
+    .modal-error { color: #ff4444; font-size: 12px; text-align: center; min-height: 16px; }
+    .modal-btns { display: flex; gap: 12px; }
+    .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
+    .modal-btn-cancel { background: transparent; border: 1px solid #333 !important; color: #888; }
+    .modal-btn-save { background: linear-gradient(135deg, #ff4444, #ff6600); color: #fff; }
+
     @media (max-width: 768px) {
       .sidebar { width: 60px; }
       .sidebar-logo .logo, .sidebar-logo .logo-sub, .nav-item span:not(.nav-icon), .sidebar-footer { display: none; }
@@ -341,6 +365,21 @@
         </div>
         <div class="section-title">Usuários cadastrados</div>
         <div id="users-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Modal -->
+  <div class="modal-overlay" id="password-modal">
+    <div class="modal-box">
+      <div class="modal-title" id="password-modal-title">Alterar senha</div>
+      <input class="modal-input" id="pw-current" type="password" placeholder="Senha atual">
+      <input class="modal-input" id="pw-new" type="password" placeholder="Nova senha">
+      <input class="modal-input" id="pw-confirm" type="password" placeholder="Confirmar nova senha">
+      <div class="modal-error" id="pw-error"></div>
+      <div class="modal-btns">
+        <button class="modal-btn-cancel" onclick="closePasswordModal()">Cancelar</button>
+        <button class="modal-btn-save" onclick="submitPasswordChange()">Salvar</button>
       </div>
     </div>
   </div>
@@ -557,12 +596,59 @@
       } catch (e) { errorEl.textContent = 'Erro ao criar usuário.'; }
     }
 
-    async function changePassword(id, username) {
-      const newPass = prompt(`Nova senha para @${username}:`);
-      if (!newPass) return;
-      const res = await api('/api/admin/users/' + id + '/password', { method: 'POST', body: JSON.stringify({ password: newPass }) });
-      if (res.error) { alert(res.error); return; }
-      alert('Senha alterada com sucesso!');
+    let pwChangeUserId = null;
+    let pwChangeUsername = null;
+
+    function changePassword(id, username) {
+      pwChangeUserId = id;
+      pwChangeUsername = username;
+      document.getElementById('password-modal-title').textContent = `Alterar senha de @${username}`;
+      document.getElementById('pw-current').value = '';
+      document.getElementById('pw-new').value = '';
+      document.getElementById('pw-confirm').value = '';
+      document.getElementById('pw-error').textContent = '';
+      document.getElementById('password-modal').classList.add('active');
+    }
+
+    function closePasswordModal() {
+      document.getElementById('password-modal').classList.remove('active');
+      pwChangeUserId = null;
+    }
+
+    async function submitPasswordChange() {
+      const current = document.getElementById('pw-current').value;
+      const newPw = document.getElementById('pw-new').value;
+      const confirm = document.getElementById('pw-confirm').value;
+      const errorEl = document.getElementById('pw-error');
+
+      if (!current) { errorEl.textContent = 'Digite a senha atual.'; return; }
+      if (!newPw) { errorEl.textContent = 'Digite a nova senha.'; return; }
+      if (newPw.length < 4) { errorEl.textContent = 'Senha deve ter no mínimo 4 caracteres.'; return; }
+      if (newPw !== confirm) { errorEl.textContent = 'As senhas não coincidem.'; return; }
+
+      // Verify current password by trying to login
+      try {
+        const loginRes = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: pwChangeUsername, password: current }),
+        });
+        const loginData = await loginRes.json();
+        if (loginData.error) { errorEl.textContent = 'Senha atual incorreta.'; return; }
+      } catch (e) { errorEl.textContent = 'Erro ao verificar senha.'; return; }
+
+      // Change password
+      const res = await api('/api/admin/users/' + pwChangeUserId + '/password', {
+        method: 'POST', body: JSON.stringify({ password: newPw })
+      });
+      if (res.error) { errorEl.textContent = res.error; return; }
+
+      closePasswordModal();
+      // Show success briefly
+      const el = document.getElementById('pw-error');
+      el.style.color = '#44cc44';
+      el.textContent = 'Senha alterada!';
+      setTimeout(() => { el.style.color = '#ff4444'; }, 2000);
     }
 
     async function deleteUser(id) {
