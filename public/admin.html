@@ -253,6 +253,7 @@
     .modal-btns button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; }
     .modal-btn-cancel { background: transparent; border: 1px solid #333 !important; color: #888; }
     .modal-btn-save { background: linear-gradient(135deg, #ff4444, #ff6600); color: #fff; }
+    .modal-btn-danger { background: #ff4444; color: #fff; }
 
     @media (max-width: 768px) {
       .sidebar { width: 60px; }
@@ -428,7 +429,34 @@
     </div>
   </div>
 
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="admin-confirm-modal">
+    <div class="modal-box">
+      <div class="modal-title" id="admin-confirm-title"></div>
+      <div class="modal-btns">
+        <button class="modal-btn-cancel" onclick="adminConfirmCancel()">Cancelar</button>
+        <button class="modal-btn-danger" onclick="adminConfirmYes()">Excluir</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let adminConfirmCb = null;
+    function adminShowConfirm(text, onConfirm) {
+      document.getElementById('admin-confirm-title').textContent = text;
+      document.getElementById('admin-confirm-modal').classList.add('active');
+      adminConfirmCb = onConfirm;
+    }
+    function adminConfirmYes() {
+      document.getElementById('admin-confirm-modal').classList.remove('active');
+      if (adminConfirmCb) adminConfirmCb();
+      adminConfirmCb = null;
+    }
+    function adminConfirmCancel() {
+      document.getElementById('admin-confirm-modal').classList.remove('active');
+      adminConfirmCb = null;
+    }
+
     let token = sessionStorage.getItem('admin-token');
     let currentUser = null;
     let cachedData = null;
@@ -696,10 +724,11 @@
       setTimeout(() => { el.style.color = '#ff4444'; }, 2000);
     }
 
-    async function deleteUser(id) {
-      if (!confirm('Remover este usuário?')) return;
-      await api('/api/admin/users/' + id, { method: 'DELETE' });
-      loadUsers();
+    function deleteUser(id) {
+      adminShowConfirm('Remover este usuário?', async () => {
+        await api('/api/admin/users/' + id, { method: 'DELETE' });
+        loadUsers();
+      });
     }
 
     // ── Words ──
@@ -802,10 +831,11 @@
       loadWords();
     }
 
-    async function removeWord(id) {
-      if (!confirm('Excluir esta palavra?')) return;
-      await api('/api/admin/words/' + id, { method: 'DELETE' });
-      loadWords();
+    function removeWord(id) {
+      adminShowConfirm('Excluir esta palavra?', async () => {
+        await api('/api/admin/words/' + id, { method: 'DELETE' });
+        loadWords();
+      });
     }
 
     // Auto-refresh
