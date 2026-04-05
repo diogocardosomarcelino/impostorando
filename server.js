@@ -130,11 +130,15 @@ function formatRoomId(id) { return String(id).padStart(4, '0'); }
 function pickWord() { return wordBank[Math.floor(Math.random() * wordBank.length)]; }
 
 function assignRoles(playerCount, impostorCount) {
+  // Fisher-Yates shuffle for truly random distribution
+  const allIndices = Array.from({ length: playerCount }, (_, i) => i);
+  for (let i = allIndices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
+  }
   const roles = Array(playerCount).fill(false);
-  const indices = [];
-  while (indices.length < impostorCount) {
-    const idx = Math.floor(Math.random() * playerCount);
-    if (!indices.includes(idx)) { indices.push(idx); roles[idx] = true; }
+  for (let i = 0; i < impostorCount; i++) {
+    roles[allIndices[i]] = true;
   }
   return roles;
 }
@@ -317,6 +321,7 @@ io.on('connection', (socket) => {
   socket.on('new-round', () => {
     const room = rooms.get(socket.roomId);
     if (!room || room.host !== socket.id) return;
+    room.gameState = 'playing';
     room.currentWord = pickWord();
     const playerRoles = sendGameData(room);
     for (const p of room.players) p.socket.emit('countdown-start');
