@@ -1429,15 +1429,15 @@
 
     // ── Session Persistence ──
     function saveSession(sessionId) {
-      sessionStorage.setItem('impostor-session', sessionId);
+      localStorage.setItem('impostor-session', sessionId);
     }
 
     function getSession() {
-      return sessionStorage.getItem('impostor-session');
+      return localStorage.getItem('impostor-session');
     }
 
     function clearSession() {
-      sessionStorage.removeItem('impostor-session');
+      localStorage.removeItem('impostor-session');
     }
 
     // ── Access Timer ──
