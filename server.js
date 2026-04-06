@@ -365,15 +365,98 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return cb({ error: 'Sala não encontrada.' });
     if (room.password !== password) return cb({ error: 'Senha incorreta.' });
-    if (room.players.some(p => p.name === playerName)) return cb({ error: 'Já existe um jogador com esse nome na sala.' });
     if (!(await checkAndEmitAccess(socket))) return cb({ error: 'Seu tempo gratuito acabou.' });
+
+    const isGameActive = room.gameState === 'playing' || room.gameState === 'voting' || room.gameState === 'results';
+    const existingPlayer = room.players.find(p => p.name === playerName);
+
+    // If game is in lobby, join directly
+    if (!isGameActive) {
+      if (existingPlayer) return cb({ error: 'Já existe um jogador com esse nome na sala.' });
+      const sessionId = crypto.randomUUID();
+      room.players.push({ socket, name: playerName });
+      socket.roomId = roomId; socket.playerName = playerName; socket.sessionId = sessionId;
+      sessions.set(sessionId, { roomId, playerName });
+      if (socket.fingerprint) { await analytics.trackName(socket.fingerprint, playerName); }
+      cb({ roomId, roomCode: formatRoomId(roomId), sessionId });
+      broadcastLobby(roomId);
+      return;
+    }
+
+    // Game is active — need host approval
+    cb({ pending: true, message: 'Aguardando aprovação do host...' });
+
+    // Find host socket
+    const hostPlayer = room.players.find(p => p.socket.id === room.host);
+    if (!hostPlayer) return socket.emit('join-rejected', { reason: 'Host não encontrado.' });
+
+    // Build request info
+    const isReconnect = !!existingPlayer;
+    const requestId = crypto.randomUUID();
+
+    // Store pending request
+    if (!room.pendingJoinRequests) room.pendingJoinRequests = new Map();
+    room.pendingJoinRequests.set(requestId, { socket, playerName, isReconnect });
+
+    // Send to host
+    hostPlayer.socket.emit('join-request', {
+      requestId,
+      playerName,
+      isReconnect,
+      message: isReconnect
+        ? `${playerName} já estava na sala e está tentando voltar. Permitir reconexão?`
+        : `${playerName} quer entrar na sala. O jogo já está em andamento. Permitir entrada?`,
+    });
+  });
+
+  // Host approves/rejects join request
+  socket.on('join-response', async ({ requestId, approved }) => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.host !== socket.id) return;
+    if (!room.pendingJoinRequests) return;
+
+    const request = room.pendingJoinRequests.get(requestId);
+    if (!request) return;
+    room.pendingJoinRequests.delete(requestId);
+
+    if (!approved) {
+      request.socket.emit('join-rejected', { reason: 'O host não aprovou sua entrada.' });
+      return;
+    }
+
+    // Approved — add or reconnect player
+    const { playerName, isReconnect } = request;
+
+    if (isReconnect) {
+      // Replace socket of existing player
+      const existing = room.players.find(p => p.name === playerName);
+      if (existing) {
+        existing.socket = request.socket;
+        existing.disconnected = false;
+      }
+    } else {
+      // Add new player
+      room.players.push({ socket: request.socket, name: playerName });
+    }
+
     const sessionId = crypto.randomUUID();
-    room.players.push({ socket, name: playerName });
-    socket.roomId = roomId; socket.playerName = playerName; socket.sessionId = sessionId;
-    sessions.set(sessionId, { roomId, playerName });
-    if (socket.fingerprint) { await analytics.trackName(socket.fingerprint, playerName); }
-    cb({ roomId, roomCode: formatRoomId(roomId), sessionId });
-    broadcastLobby(roomId);
+    request.socket.roomId = room.id;
+    request.socket.playerName = playerName;
+    request.socket.sessionId = sessionId;
+    sessions.set(sessionId, { roomId: room.id, playerName });
+
+    if (request.socket.fingerprint) { await analytics.trackName(request.socket.fingerprint, playerName); }
+
+    // Send room info to the joining player
+    request.socket.emit('join-approved', { roomId: room.id, roomCode: formatRoomId(room.id), sessionId });
+
+    // If game is active and player has roles, send game data
+    if (room.playerRoles?.[playerName]) {
+      const role = room.playerRoles[playerName];
+      request.socket.emit('game-started', {
+        playerName, isImpostor: role.isImpostor, word: role.word, hint: role.hint,
+      });
+    }
   });
 
   socket.on('update-settings', ({ impostorCount, hintsEnabled }) => {

@@ -1017,6 +1017,74 @@
       100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
     }
 
+    /* ── Join Request Toast ── */
+    .join-request-toast {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #12122a;
+      border: 2px solid #ff8800;
+      border-radius: 16px;
+      padding: 16px 20px;
+      z-index: 120;
+      width: 90%;
+      max-width: 340px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: toastSlide 0.3s ease-out;
+    }
+
+    .join-request-toast.active { display: flex; }
+
+    @keyframes toastSlide {
+      0% { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+      100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    .join-request-text {
+      font-size: 14px;
+      color: #ccc;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .join-request-name {
+      color: #ff8800;
+      font-weight: 700;
+    }
+
+    .join-request-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(255, 136, 0, 0.2);
+      color: #ff8800;
+      margin-left: 4px;
+    }
+
+    .join-request-btns {
+      display: flex;
+      gap: 10px;
+    }
+
+    .join-request-btns button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+
+    .join-req-reject { background: transparent; border: 1px solid #333 !important; color: #888; }
+    .join-req-approve { background: linear-gradient(135deg, #44cc44, #22aa22); color: #fff; }
+
     /* ── Countdown Overlay ── */
     .countdown-overlay {
       display: none;
@@ -1104,6 +1172,15 @@
     <div class="result-reveal-line" id="result-reveal-line"></div>
     <span class="result-reveal-text" id="result-reveal-text"></span>
     <span class="result-reveal-sub" id="result-reveal-sub"></span>
+  </div>
+
+  <!-- ══ Join Request Toast (host only) ══ -->
+  <div class="join-request-toast" id="join-request-toast">
+    <div class="join-request-text" id="join-request-text"></div>
+    <div class="join-request-btns">
+      <button class="join-req-reject" onclick="respondJoinRequest(false)">Recusar</button>
+      <button class="join-req-approve" onclick="respondJoinRequest(true)">Permitir</button>
+    </div>
   </div>
 
   <!-- ══ Countdown Overlay ══ -->
@@ -1593,11 +1670,55 @@
 
       socket.emit('join-room', { roomCode, playerName: name, password }, (res) => {
         if (res.error) { errorEl.textContent = res.error; return; }
+        if (res.pending) {
+          errorEl.style.color = '#ff8800';
+          errorEl.textContent = res.message || 'Aguardando aprovação do host...';
+          return;
+        }
         myRoomId = res.roomId;
         saveSession(res.sessionId);
         document.getElementById('lobby-room-code').textContent = res.roomCode;
         showScreen('lobby');
       });
+    }
+
+    // ── Join Request/Approval (active game) ──
+    let currentJoinRequestId = null;
+
+    socket.on('join-approved', (data) => {
+      myRoomId = data.roomId;
+      saveSession(data.sessionId);
+      document.getElementById('lobby-room-code').textContent = data.roomCode;
+      // Reset error color
+      const errorEl = document.getElementById('join-error');
+      if (errorEl) { errorEl.style.color = '#ff4444'; errorEl.textContent = ''; }
+      showScreen('game');
+    });
+
+    socket.on('join-rejected', (data) => {
+      const errorEl = document.getElementById('join-error');
+      if (errorEl) {
+        errorEl.style.color = '#ff4444';
+        errorEl.textContent = data.reason || 'Entrada não aprovada pelo host.';
+      }
+      showAlert(data.reason || 'O host não aprovou sua entrada.');
+    });
+
+    // Host receives join request
+    socket.on('join-request', (data) => {
+      currentJoinRequestId = data.requestId;
+      const toast = document.getElementById('join-request-toast');
+      const textEl = document.getElementById('join-request-text');
+      const badge = data.isReconnect ? '<span class="join-request-badge">RECONEXÃO</span>' : '<span class="join-request-badge">NOVO</span>';
+      textEl.innerHTML = `<span class="join-request-name">${data.playerName}</span> ${badge}<br>${data.message}`;
+      toast.classList.add('active');
+    });
+
+    function respondJoinRequest(approved) {
+      if (!currentJoinRequestId) return;
+      socket.emit('join-response', { requestId: currentJoinRequestId, approved });
+      document.getElementById('join-request-toast').classList.remove('active');
+      currentJoinRequestId = null;
     }
 
     // ── Lobby ──
