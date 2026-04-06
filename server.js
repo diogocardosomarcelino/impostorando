@@ -386,9 +386,15 @@ io.on('connection', (socket) => {
     // Game is active — need host approval
     cb({ pending: true, message: 'Aguardando aprovação do host...' });
 
-    // Find host socket
-    const hostPlayer = room.players.find(p => p.socket.id === room.host);
-    if (!hostPlayer) return socket.emit('join-rejected', { reason: 'Host não encontrado.' });
+    // Find host socket (try by host id, then by first active player)
+    let hostPlayer = room.players.find(p => p.socket.id === room.host && !p.disconnected);
+    if (!hostPlayer) hostPlayer = room.players.find(p => !p.disconnected);
+    if (!hostPlayer) return socket.emit('join-rejected', { reason: 'Host não disponível. Tente novamente.' });
+
+    // Fix host reference if it was stale
+    if (hostPlayer.socket.id !== room.host) {
+      room.host = hostPlayer.socket.id;
+    }
 
     // Build request info
     const isReconnect = !!existingPlayer;
@@ -412,7 +418,10 @@ io.on('connection', (socket) => {
   // Host approves/rejects join request
   socket.on('join-response', async ({ requestId, approved }) => {
     const room = rooms.get(socket.roomId);
-    if (!room || room.host !== socket.id) return;
+    if (!room) return;
+    // Allow response from current host or first player (in case host reference is stale)
+    const isHostOrFirst = room.host === socket.id || room.players[0]?.socket.id === socket.id;
+    if (!isHostOrFirst) return;
     if (!room.pendingJoinRequests) return;
 
     const request = room.pendingJoinRequests.get(requestId);
