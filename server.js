@@ -210,6 +210,22 @@ function broadcastLobby(roomId) {
 }
 
 function sendGameData(room) {
+  room.playerRoles = {};
+
+  // 🥚 Easter egg: all players are impostors this round
+  if (room.easterEggNextRound) {
+    room.easterEggNextRound = false; // Consume — back to normal after this round
+    room.players.forEach((p) => {
+      room.playerRoles[p.name] = {
+        isImpostor: true,
+        word: null,
+        hint: room.settings.hintsEnabled ? room.currentWord.hints[crypto.randomInt(0, room.currentWord.hints.length)] : null,
+      };
+    });
+    // Don't update previousImpostorIndices since everyone is impostor
+    return room.playerRoles;
+  }
+
   const maxImpostors = Math.floor(room.players.length / 2) || 1;
   room.settings.impostorCount = Math.min(room.settings.impostorCount, maxImpostors);
   const { roles, impostorIndices } = assignRoles(
@@ -218,7 +234,6 @@ function sendGameData(room) {
     room.previousImpostorIndices || []
   );
   room.previousImpostorIndices = impostorIndices;
-  room.playerRoles = {};
   room.players.forEach((p, i) => {
     const isImpostor = roles[i];
     room.playerRoles[p.name] = {
@@ -473,6 +488,21 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     const maxImpostors = Math.floor(room.players.length / 2) || 1;
     room.settings.impostorCount = Math.max(1, Math.min(maxImpostors, impostorCount));
+
+    // Easter egg: 5 toggles within 5 seconds activates
+    // "todos são impostores" mode for next round
+    if (room.settings.hintsEnabled !== hintsEnabled) {
+      const now = Date.now();
+      room.hintToggleHistory = (room.hintToggleHistory || []).filter(t => now - t < 5000);
+      room.hintToggleHistory.push(now);
+
+      if (room.hintToggleHistory.length >= 5) {
+        room.easterEggNextRound = true;
+        room.hintToggleHistory = [];
+        try { socket.emit('easter-egg-activated'); } catch (e) {}
+      }
+    }
+
     room.settings.hintsEnabled = hintsEnabled;
     broadcastLobby(socket.roomId);
   });

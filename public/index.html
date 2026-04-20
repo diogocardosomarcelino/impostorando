@@ -1631,6 +1631,11 @@
       startAccessTimer(remainingMs);
     });
 
+    // 🥚 Easter egg activated (host only)
+    socket.on('easter-egg-activated', () => {
+      showAlert('😈 Modo pegadinha ativado! Na próxima rodada TODOS serão impostores.');
+    });
+
     // ── Screen Navigation ──
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
