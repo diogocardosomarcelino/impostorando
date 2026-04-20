@@ -2249,6 +2249,8 @@
     let localRoles = [];
     let localWord = null;
     let localIsRevealing = false;
+    let localHintToggleHistory = [];
+    let localEasterEggNextRound = false;
 
     // Word bank loaded from /words.js (wordBank global variable)
 
@@ -2271,20 +2273,41 @@
     function localToggleHint() {
       localHintsEnabled = !localHintsEnabled;
       document.getElementById('local-hint-toggle').classList.toggle('active', localHintsEnabled);
+
+      // 🥚 Easter egg: 5 toggles within 10 seconds activates "all impostors" mode
+      const now = Date.now();
+      localHintToggleHistory = localHintToggleHistory.filter(t => now - t < 10000);
+      localHintToggleHistory.push(now);
+
+      if (localHintToggleHistory.length >= 5) {
+        localEasterEggNextRound = true;
+        localHintToggleHistory = [];
+        const toast = document.getElementById('easter-toast');
+        toast.classList.remove('show');
+        void toast.offsetHeight;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3500);
+      }
     }
 
     function localStartGame() {
       // Pick word
       localWord = wordBank[Math.floor(Math.random() * wordBank.length)];
 
-      // Assign roles
-      localRoles = Array(localPlayerCount).fill(false);
-      const indices = [];
-      while (indices.length < localImpostorCount) {
-        const idx = Math.floor(Math.random() * localPlayerCount);
-        if (!indices.includes(idx)) {
-          indices.push(idx);
-          localRoles[idx] = true;
+      // 🥚 Easter egg: all players are impostors this round
+      if (localEasterEggNextRound) {
+        localEasterEggNextRound = false; // Consume
+        localRoles = Array(localPlayerCount).fill(true);
+      } else {
+        // Assign roles normally
+        localRoles = Array(localPlayerCount).fill(false);
+        const indices = [];
+        while (indices.length < localImpostorCount) {
+          const idx = Math.floor(Math.random() * localPlayerCount);
+          if (!indices.includes(idx)) {
+            indices.push(idx);
+            localRoles[idx] = true;
+          }
         }
       }
 
