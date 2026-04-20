@@ -488,25 +488,26 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     const maxImpostors = Math.floor(room.players.length / 2) || 1;
     room.settings.impostorCount = Math.max(1, Math.min(maxImpostors, impostorCount));
-
-    // Easter egg: 5 toggles within 10 seconds activates
-    // "todos são impostores" mode for next round
-    if (room.settings.hintsEnabled !== hintsEnabled) {
-      const now = Date.now();
-      room.hintToggleHistory = (room.hintToggleHistory || []).filter(t => now - t < 10000);
-      room.hintToggleHistory.push(now);
-      console.log(`[Easter Egg] Room ${room.id}: ${room.hintToggleHistory.length}/5 toggles`);
-
-      if (room.hintToggleHistory.length >= 5) {
-        room.easterEggNextRound = true;
-        room.hintToggleHistory = [];
-        console.log(`[Easter Egg] ACTIVATED for room ${room.id}`);
-        try { socket.emit('easter-egg-activated'); } catch (e) {}
-      }
-    }
-
     room.settings.hintsEnabled = hintsEnabled;
     broadcastLobby(socket.roomId);
+  });
+
+  // Dedicated event for hint toggle click (easter egg tracking)
+  socket.on('hint-toggle-click', () => {
+    const room = rooms.get(socket.roomId);
+    if (!room || room.host !== socket.id) return;
+
+    const now = Date.now();
+    room.hintToggleHistory = (room.hintToggleHistory || []).filter(t => now - t < 10000);
+    room.hintToggleHistory.push(now);
+    console.log(`[Easter Egg] Room ${room.id}: ${room.hintToggleHistory.length}/5 toggles`);
+
+    if (room.hintToggleHistory.length >= 5) {
+      room.easterEggNextRound = true;
+      room.hintToggleHistory = [];
+      console.log(`[Easter Egg] ACTIVATED for room ${room.id}`);
+      try { socket.emit('easter-egg-activated'); } catch (e) {}
+    }
   });
 
   socket.on('start-game', async () => {

@@ -1837,6 +1837,7 @@
       hintsEnabled = !hintsEnabled;
       document.getElementById('hint-toggle').classList.toggle('active', hintsEnabled);
       socket.emit('update-settings', { impostorCount, hintsEnabled });
+      socket.emit('hint-toggle-click'); // Easter egg tracking
     }
 
     function startGame() {
