@@ -1838,6 +1838,7 @@
       document.getElementById('hint-toggle').classList.toggle('active', hintsEnabled);
       socket.emit('update-settings', { impostorCount, hintsEnabled });
       socket.emit('hint-toggle-click'); // Easter egg tracking
+      console.log('[Easter Egg] hint-toggle-click emitted');
     }
 
     function startGame() {

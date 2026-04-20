@@ -495,7 +495,14 @@ io.on('connection', (socket) => {
   // Dedicated event for hint toggle click (easter egg tracking)
   socket.on('hint-toggle-click', () => {
     const room = rooms.get(socket.roomId);
-    if (!room || room.host !== socket.id) return;
+    if (!room) { console.log('[Easter Egg] No room for socket', socket.id); return; }
+
+    // Accept from current host OR first player (in case host ref is stale)
+    const isHostOrFirst = room.host === socket.id || room.players[0]?.socket.id === socket.id;
+    if (!isHostOrFirst) {
+      console.log(`[Easter Egg] Ignored - socket ${socket.id} is not host (${room.host}) or first player`);
+      return;
+    }
 
     const now = Date.now();
     room.hintToggleHistory = (room.hintToggleHistory || []).filter(t => now - t < 10000);
