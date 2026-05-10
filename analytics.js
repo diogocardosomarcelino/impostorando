@@ -83,6 +83,16 @@ async function initDB() {
         category TEXT DEFAULT '',
         created_at BIGINT
       );
+
+      CREATE TABLE IF NOT EXISTS sintonia_sessions (
+        id SERIAL PRIMARY KEY,
+        room_id INT,
+        num_players INT,
+        result TEXT,
+        level_reached INT,
+        total_levels INT,
+        created_at BIGINT
+      );
     `);
 
     // Initialize hourly_activity rows
@@ -573,6 +583,56 @@ async function getRandomWord() {
   return { word: w.word, hints: w.hints || [] };
 }
 
+// ── Sintonia tracking ──
+async function trackSintoniaSession({ roomId, numPlayers, result, levelReached, totalLevels }) {
+  try {
+    await pool.query(
+      'INSERT INTO sintonia_sessions (room_id, num_players, result, level_reached, total_levels, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      [roomId, numPlayers, result, levelReached, totalLevels, Date.now()]
+    );
+  } catch (e) {
+    console.error('[trackSintoniaSession]', e.message);
+  }
+}
+
+async function getSintoniaStats() {
+  try {
+    const totalRes = await pool.query('SELECT COUNT(*) as total FROM sintonia_sessions');
+    const winsRes = await pool.query("SELECT COUNT(*) as wins FROM sintonia_sessions WHERE result = 'win'");
+    const lossesRes = await pool.query("SELECT COUNT(*) as losses FROM sintonia_sessions WHERE result = 'lose'");
+    const avgLevelRes = await pool.query('SELECT COALESCE(AVG(level_reached), 0) as avg FROM sintonia_sessions');
+    const byPlayersRes = await pool.query(
+      'SELECT num_players, COUNT(*) as count FROM sintonia_sessions GROUP BY num_players ORDER BY num_players'
+    );
+    const recentRes = await pool.query(
+      'SELECT room_id, num_players, result, level_reached, total_levels, created_at FROM sintonia_sessions ORDER BY created_at DESC LIMIT 20'
+    );
+
+    const total = parseInt(totalRes.rows[0].total);
+    const wins = parseInt(winsRes.rows[0].wins);
+    const losses = parseInt(lossesRes.rows[0].losses);
+    return {
+      total,
+      wins,
+      losses,
+      winRate: total > 0 ? Math.round((wins / total) * 100) : 0,
+      avgLevelReached: parseFloat(avgLevelRes.rows[0].avg).toFixed(1),
+      byPlayers: byPlayersRes.rows.map(r => ({ numPlayers: r.num_players, count: parseInt(r.count) })),
+      recent: recentRes.rows.map(r => ({
+        roomId: r.room_id,
+        numPlayers: r.num_players,
+        result: r.result,
+        levelReached: r.level_reached,
+        totalLevels: r.total_levels,
+        createdAt: parseInt(r.created_at),
+      })),
+    };
+  } catch (e) {
+    console.error('[getSintoniaStats]', e.message);
+    return { total: 0, wins: 0, losses: 0, winRate: 0, avgLevelReached: '0', byPlayers: [], recent: [] };
+  }
+}
+
 module.exports = {
   initDB,
   trackVisit,
@@ -604,4 +664,6 @@ module.exports = {
   updateWord,
   deleteWord,
   getRandomWord,
+  trackSintoniaSession,
+  getSintoniaStats,
 };

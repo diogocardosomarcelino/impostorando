@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const analytics = require('./analytics');
 const wordBank = require('./words');
+const sintonia = require('./games/sintonia');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,8 +14,20 @@ const io = new Server(server, {
   pingTimeout: 15000,
 });
 
+// Initialize Sintonia game on its own namespace
+sintonia.init(io, analytics);
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Page routes (multi-page) ──
+app.get('/impostor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'impostor.html'));
+});
+
+app.get('/sintonia', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sintonia.html'));
+});
 
 // ── Admin Auth ──
 const adminTokens = new Map();
@@ -125,6 +138,11 @@ app.post('/api/admin/users/:id/password', verifyAdmin, async (req, res) => {
 });
 
 // ── Words CRUD ──
+// Sintonia admin stats
+app.get('/api/admin/sintonia/stats', verifyAdmin, async (req, res) => {
+  res.json(await analytics.getSintoniaStats());
+});
+
 app.get('/api/admin/words', verifyAdmin, async (req, res) => {
   const { search, limit, offset } = req.query;
   res.json(await analytics.getWords(search || '', parseInt(limit) || 50, parseInt(offset) || 0));

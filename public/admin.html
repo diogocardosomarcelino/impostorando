@@ -292,6 +292,7 @@
       <div class="nav-item" onclick="showPage('players', this)"><span class="nav-icon">👥</span><span>Jogadores</span></div>
       <div class="nav-item" onclick="showPage('settings', this)"><span class="nav-icon">⚙️</span><span>Configurações</span></div>
       <div class="nav-item" onclick="showPage('words', this)"><span class="nav-icon">📝</span><span>Palavras</span></div>
+      <div class="nav-item" onclick="showPage('sintonia', this)"><span class="nav-icon">🎴</span><span>Sintonia</span></div>
       <div class="nav-item" onclick="showPage('users', this)"><span class="nav-icon">🔑</span><span>Usuários</span></div>
 
       <div class="sidebar-footer">
@@ -392,6 +393,28 @@
           <button class="action-btn" id="words-prev" onclick="wordsPage(-1)" style="display:none">Anterior</button>
           <span style="font-size:12px;color:#555" id="words-page-info"></span>
           <button class="action-btn" id="words-next" onclick="wordsPage(1)" style="display:none">Próxima</button>
+        </div>
+      </div>
+
+      <!-- SINTONIA -->
+      <div id="page-sintonia" class="page">
+        <div class="page-header"><span class="page-title">Sintonia</span><button class="refresh-btn" onclick="loadSintoniaStats()">Atualizar</button></div>
+
+        <div class="cards" id="sintonia-cards"></div>
+
+        <div class="section">
+          <div class="section-title">Distribuição por número de jogadores</div>
+          <div id="sintonia-by-players"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Partidas recentes</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Sala</th><th>Jogadores</th><th>Resultado</th><th>Nível</th><th>Quando</th></tr></thead>
+              <tbody id="sintonia-recent"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -504,6 +527,7 @@
       loadStats();
       loadUsers();
       loadWords();
+      loadSintoniaStats();
     }
 
     // Try auto-login on load
@@ -838,8 +862,53 @@
       });
     }
 
+    // ── Sintonia stats ──
+    async function loadSintoniaStats() {
+      try {
+        const data = await api('/api/admin/sintonia/stats');
+        renderSintoniaStats(data);
+      } catch (e) {}
+    }
+
+    function renderSintoniaStats(d) {
+      document.getElementById('sintonia-cards').innerHTML = `
+        <div class="card"><div class="card-value blue">${d.total}</div><div class="card-label">Total partidas</div></div>
+        <div class="card"><div class="card-value green">${d.wins}</div><div class="card-label">Vitórias</div></div>
+        <div class="card"><div class="card-value red">${d.losses}</div><div class="card-label">Derrotas</div></div>
+        <div class="card"><div class="card-value">${d.winRate}%</div><div class="card-label">Taxa de vitória</div></div>
+        <div class="card"><div class="card-value">${d.avgLevelReached}</div><div class="card-label">Nível médio</div></div>
+      `;
+
+      const byEl = document.getElementById('sintonia-by-players');
+      if (!d.byPlayers || d.byPlayers.length === 0) {
+        byEl.innerHTML = '<div class="empty-msg">Sem dados ainda</div>';
+      } else {
+        byEl.innerHTML = '<div class="meta-grid">' + d.byPlayers.map(b =>
+          `<div class="meta-item"><div class="meta-label">${b.numPlayers} jogadores</div><div class="meta-value">${b.count} partidas</div></div>`
+        ).join('') + '</div>';
+      }
+
+      const tbody = document.getElementById('sintonia-recent');
+      if (!d.recent || d.recent.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Nenhuma partida ainda</td></tr>';
+      } else {
+        tbody.innerHTML = d.recent.map(r => {
+          const badge = r.result === 'win'
+            ? '<span class="status-badge status-online">VITÓRIA</span>'
+            : '<span class="status-badge status-blocked">DERROTA</span>';
+          return `<tr>
+            <td>${String(r.roomId).padStart(4,'0')}</td>
+            <td>${r.numPlayers}</td>
+            <td>${badge}</td>
+            <td>${r.levelReached}/${r.totalLevels}</td>
+            <td>${timeAgo(r.createdAt)}</td>
+          </tr>`;
+        }).join('');
+      }
+    }
+
     // Auto-refresh
-    setInterval(() => { if (token) loadStats(); }, 10000);
+    setInterval(() => { if (token) { loadStats(); loadSintoniaStats(); } }, 10000);
   </script>
 </body>
 </html>

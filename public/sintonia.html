@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SINTONIA - Impostorando</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none; user-select: none; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #000000;
+      color: #fff;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    input { -webkit-user-select: text; user-select: text; }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100dvh;
+      padding: 32px 20px 20px;
+      gap: 20px;
+    }
+    .screen.active { display: flex; }
+
+    /* ── Branding ── */
+    .brand-logo {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #4488ff, #44ccdd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #555;
+      letter-spacing: 4px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    /* ── Forms ── */
+    .form-group { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+    .form-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; }
+    .form-input {
+      width: 100%; padding: 14px 16px;
+      border: 2px solid #222; border-radius: 12px;
+      background: #12122a; color: #fff;
+      font-size: 16px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: #4488ff; }
+    .form-input::placeholder { color: #444; }
+
+    .btn {
+      width: 100%; max-width: 340px;
+      padding: 16px;
+      border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn:active { transform: scale(0.96); opacity: 0.9; }
+    .btn-primary { background: linear-gradient(135deg, #4488ff, #44ccdd); color: #fff; }
+    .btn-secondary { background: transparent; border: 2px solid #333; color: #ccc; }
+    .btn-outline { background: transparent; border: 2px solid #4488ff; color: #4488ff; }
+    .btn-ghost { background: transparent; color: #555; font-size: 14px; padding: 12px; letter-spacing: 1px; }
+
+    .btn-group { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 340px; }
+
+    .error-msg { color: #ff4444; font-size: 13px; text-align: center; min-height: 20px; }
+    .section-title { font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+
+    /* ── Lobby ── */
+    .room-code-box {
+      text-align: center;
+      background: #12122a;
+      border: 2px solid #222;
+      border-radius: 16px;
+      padding: 18px 24px;
+      width: 100%; max-width: 320px;
+    }
+    .room-code-display {
+      font-size: 44px; font-weight: 900;
+      letter-spacing: 12px;
+      color: #44ccdd;
+      font-family: 'Courier New', monospace;
+      margin: 4px 0 6px;
+    }
+    .room-code-label { font-size: 11px; color: #666; letter-spacing: 3px; text-transform: uppercase; }
+    .room-code-hint { font-size: 11px; color: #555; }
+
+    .player-list { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px; }
+    .player-item {
+      padding: 12px 16px;
+      background: #12122a;
+      border: 2px solid #222;
+      border-radius: 10px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 15px;
+    }
+    .player-badge { font-size: 11px; color: #44ccdd; font-weight: 700; letter-spacing: 1px; }
+    .min-warn { font-size: 12px; color: #ff8800; text-align: center; }
+    .waiting-text { font-size: 14px; color: #555; letter-spacing: 1px; animation: blink 2s infinite; text-align: center; }
+    @keyframes blink { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    /* ── Game ── */
+    .game-top {
+      width: 100%; max-width: 380px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #0a0a18;
+      border: 1px solid #1a1a2e;
+      border-radius: 14px;
+    }
+    .stat-block {
+      display: flex; flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .stat-label { font-size: 9px; color: #666; letter-spacing: 1.5px; text-transform: uppercase; }
+    .stat-value { font-size: 18px; font-weight: 900; color: #fff; }
+    .stat-value.lives { color: #ff4444; }
+    .stat-value.stars { color: #ffaa00; }
+
+    /* Cards in pile */
+    .pile-area {
+      width: 100%;
+      max-width: 380px;
+      min-height: 180px;
+      background: linear-gradient(180deg, #0a0a18 0%, #050510 100%);
+      border: 2px dashed #1a1a35;
+      border-radius: 16px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .pile-empty {
+      color: #333;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .pile-card {
+      position: relative;
+      background: linear-gradient(135deg, #12122a, #1a1a35);
+      border: 2px solid #4488ff;
+      border-radius: 12px;
+      width: 80px; height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      font-weight: 900;
+      color: #44ccdd;
+      box-shadow: 0 0 30px rgba(68, 136, 255, 0.3);
+    }
+    .pile-card.error {
+      border-color: #ff4444;
+      color: #ff4444;
+      box-shadow: 0 0 30px rgba(255, 68, 68, 0.3);
+      animation: cardShake 0.4s ease-in-out;
+    }
+    .pile-card-by {
+      position: absolute;
+      bottom: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    @keyframes cardShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+
+    /* Player hand */
+    .hand-area {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .hand-label { font-size: 10px; color: #555; letter-spacing: 2px; text-transform: uppercase; }
+    .hand {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      flex-wrap: wrap;
+      max-width: 100%;
+    }
+    .hand-card {
+      width: 52px; height: 72px;
+      background: linear-gradient(135deg, #1a1a35, #12122a);
+      border: 2px solid #333;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900;
+      color: #ccc;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    .hand-card.lowest {
+      border-color: #4488ff;
+      color: #44ccdd;
+      box-shadow: 0 0 16px rgba(68, 136, 255, 0.4);
+      transform: translateY(-4px);
+    }
+
+    /* Other players hand counts */
+    .others-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      max-width: 380px;
+    }
+    .other-player {
+      background: #0a0a18;
+      border: 1px solid #1a1a35;
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 70px;
+    }
+    .other-player.disconnected { opacity: 0.4; }
+    .other-name { font-size: 11px; color: #aaa; }
+    .other-count {
+      font-size: 14px;
+      font-weight: 700;
+      color: #44ccdd;
+    }
+    .other-cards {
+      display: flex;
+      gap: 2px;
+      margin-top: 2px;
+    }
+    .other-mini-card {
+      width: 8px; height: 12px;
+      background: linear-gradient(135deg, #1a1a35, #12122a);
+      border: 1px solid #333;
+      border-radius: 2px;
+    }
+
+    .action-buttons {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn-play {
+      padding: 18px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #4488ff, #44ccdd);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-play:active { transform: scale(0.96); }
+    .btn-play:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-star {
+      padding: 12px;
+      border: 2px solid #ffaa00;
+      border-radius: 12px;
+      background: transparent;
+      color: #ffaa00;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .btn-star:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ── Star request modal ── */
+    .star-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .star-overlay.active { display: flex; }
+    .star-box {
+      background: #12122a;
+      border: 2px solid #ffaa00;
+      border-radius: 18px;
+      padding: 28px 24px;
+      max-width: 320px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .star-emoji { font-size: 42px; }
+    .star-title { font-size: 16px; font-weight: 800; color: #ffaa00; letter-spacing: 1px; }
+    .star-text { font-size: 14px; color: #ccc; line-height: 1.5; }
+    .star-progress { font-size: 12px; color: #888; }
+    .star-buttons { display: flex; gap: 10px; }
+    .star-buttons .btn { flex: 1; padding: 12px; font-size: 13px; }
+
+    /* ── Error flash ── */
+    .error-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255, 68, 68, 0.2) 0%, rgba(0,0,0,0.95) 70%);
+      z-index: 105;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px;
+    }
+    .error-overlay.active {
+      display: flex;
+      animation: errorPulse 0.4s;
+    }
+    @keyframes errorPulse {
+      0% { background: radial-gradient(circle at center, rgba(255, 68, 68, 0.6), rgba(0,0,0,0.95)); }
+      100% { background: radial-gradient(circle at center, rgba(255, 68, 68, 0.2), rgba(0,0,0,0.95)); }
+    }
+    .error-title {
+      font-size: 28px;
+      font-weight: 900;
+      color: #ff4444;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
+    }
+    .error-played-card {
+      width: 90px; height: 124px;
+      background: linear-gradient(135deg, #12122a, #1a1a35);
+      border: 2px solid #ff4444;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 900;
+      color: #ff4444;
+      box-shadow: 0 0 30px rgba(255, 68, 68, 0.4);
+    }
+    .error-info {
+      font-size: 13px;
+      color: #ccc;
+      text-align: center;
+      max-width: 320px;
+      line-height: 1.5;
+    }
+    .error-lower-cards {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 320px;
+      margin-top: 4px;
+    }
+    .error-lower-card {
+      background: rgba(255, 68, 68, 0.15);
+      border: 1px solid #ff4444;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #ff8888;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .error-lower-name { font-size: 9px; color: #888; letter-spacing: 1px; text-transform: uppercase; }
+    .error-lower-num { font-size: 16px; font-weight: 900; color: #ff4444; }
+
+    /* ── Level transition ── */
+    .level-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 110;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .level-overlay.active { display: flex; }
+    .level-num {
+      font-size: 80px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #4488ff, #44ccdd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: levelPop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes levelPop {
+      0% { opacity: 0; transform: scale(0.3); }
+      50% { transform: scale(1.15); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .level-text {
+      font-size: 14px;
+      color: #aaa;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    .level-bonus {
+      font-size: 16px;
+      color: #44cc44;
+      letter-spacing: 1px;
+      margin-top: 6px;
+      animation: bonusFade 0.6s 0.3s both;
+    }
+    @keyframes bonusFade {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Game over ── */
+    .gameover-icon { font-size: 80px; animation: levelPop 0.8s; }
+    .gameover-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    .gameover-title.win {
+      background: linear-gradient(135deg, #44cc44, #44ccdd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .gameover-title.lose {
+      color: #ff4444;
+      text-shadow: 0 0 30px rgba(255, 68, 68, 0.4);
+    }
+    .gameover-text { font-size: 14px; color: #888; text-align: center; line-height: 1.6; max-width: 300px; }
+
+    /* ── Confirm Modal ── */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 90;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 24px;
+    }
+    .confirm-overlay.active { display: flex; }
+    .confirm-box {
+      background: #12122a;
+      border: 2px solid #333;
+      border-radius: 20px;
+      padding: 28px 24px;
+      max-width: 300px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .confirm-text { font-size: 16px; color: #ccc; line-height: 1.5; }
+    .confirm-buttons { display: flex; gap: 12px; }
+    .confirm-buttons .btn { flex: 1; padding: 14px; font-size: 14px; }
+
+    /* ── Alert Modal ── */
+    .alert-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 95;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .alert-overlay.active { display: flex; }
+    .alert-box {
+      background: #12122a;
+      border: 2px solid #333;
+      border-radius: 20px;
+      padding: 28px 24px;
+      max-width: 300px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Join request toast (host) ── */
+    .join-toast {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #12122a;
+      border: 2px solid #4488ff;
+      border-radius: 16px;
+      padding: 14px 18px;
+      z-index: 120;
+      width: 90%;
+      max-width: 340px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .join-toast.active { display: flex; }
+    .join-toast-text { font-size: 13px; color: #ccc; line-height: 1.5; text-align: center; }
+    .join-toast-name { color: #44ccdd; font-weight: 700; }
+    .join-toast-btns { display: flex; gap: 10px; }
+    .join-toast-btns button { flex: 1; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; }
+    .toast-reject { background: transparent; border: 1px solid #333 !important; color: #888; }
+    .toast-approve { background: linear-gradient(135deg, #44cc44, #22aa22); color: #fff; }
+
+    .footer-link {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #555;
+      text-decoration: none;
+    }
+    .footer-link:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Confirm Modal ── -->
+  <div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <span class="confirm-text" id="confirm-text"></span>
+      <div class="confirm-buttons">
+        <button class="btn btn-secondary" onclick="confirmCancel()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmYes()">Sim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Alert Modal ── -->
+  <div class="alert-overlay" id="alert-overlay">
+    <div class="alert-box">
+      <span class="confirm-text" id="alert-text"></span>
+      <button class="btn btn-primary" onclick="closeAlert()">OK</button>
+    </div>
+  </div>
+
+  <!-- ── Star Request Modal ── -->
+  <div class="star-overlay" id="star-overlay">
+    <div class="star-box">
+      <div class="star-emoji">⭐</div>
+      <div class="star-title" id="star-title">Pedido de Estrela</div>
+      <div class="star-text" id="star-text"></div>
+      <div class="star-progress" id="star-progress"></div>
+      <div class="star-buttons" id="star-buttons">
+        <button class="btn btn-secondary" onclick="rejectStar()">Recusar</button>
+        <button class="btn btn-primary" onclick="confirmStar()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Error Overlay ── -->
+  <div class="error-overlay" id="error-overlay">
+    <div class="error-title">Erro!</div>
+    <div class="error-played-card" id="error-played-card"></div>
+    <div class="error-info" id="error-info"></div>
+    <div class="error-lower-cards" id="error-lower-cards"></div>
+  </div>
+
+  <!-- ── Level Transition ── -->
+  <div class="level-overlay" id="level-overlay">
+    <div class="level-text">Nível</div>
+    <div class="level-num" id="level-num">1</div>
+    <div class="level-bonus" id="level-bonus" style="display:none"></div>
+  </div>
+
+  <!-- ── Join Request Toast (host only) ── -->
+  <div class="join-toast" id="join-toast">
+    <div class="join-toast-text" id="join-toast-text"></div>
+    <div class="join-toast-btns">
+      <button class="toast-reject" onclick="respondJoin(false)">Recusar</button>
+      <button class="toast-approve" onclick="respondJoin(true)">Permitir</button>
+    </div>
+  </div>
+
+  <!-- ══ HOME ══ -->
+  <div id="home" class="screen active">
+    <div>
+      <div class="brand-logo">SINTONIA</div>
+      <div class="brand-sub">cooperativo · sem falar</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="showScreen('create')">Criar Sala</button>
+      <button class="btn btn-secondary" onclick="showScreen('join')">Entrar na Sala</button>
+    </div>
+    <a href="/" class="footer-link">← Outros jogos</a>
+  </div>
+
+  <!-- ══ CREATE ══ -->
+  <div id="create" class="screen">
+    <div class="brand-logo" style="font-size:28px">SINTONIA</div>
+    <div class="section-title">Criar Sala</div>
+    <div class="form-group">
+      <span class="form-label">Seu nome</span>
+      <input class="form-input" id="create-name" type="text" placeholder="Ex: ANA" maxlength="20" autocomplete="off" style="text-transform:uppercase">
+    </div>
+    <div class="form-group">
+      <span class="form-label">Senha da sala (4 dígitos)</span>
+      <input class="form-input" id="create-password" type="tel" placeholder="0000" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="error-msg" id="create-error"></div>
+    <button class="btn btn-primary" onclick="createRoom()">Criar</button>
+    <button class="btn btn-ghost" onclick="showScreen('home')">Voltar</button>
+  </div>
+
+  <!-- ══ JOIN ══ -->
+  <div id="join" class="screen">
+    <div class="brand-logo" style="font-size:28px">SINTONIA</div>
+    <div class="section-title">Entrar na Sala</div>
+    <div class="form-group">
+      <span class="form-label">Seu nome</span>
+      <input class="form-input" id="join-name" type="text" placeholder="Ex: BIA" maxlength="20" autocomplete="off" style="text-transform:uppercase">
+    </div>
+    <div class="form-group">
+      <span class="form-label">Número da sala (4 dígitos)</span>
+      <input class="form-input" id="join-room-code" type="tel" placeholder="0001" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <span class="form-label">Senha da sala (4 dígitos)</span>
+      <input class="form-input" id="join-password" type="tel" placeholder="0000" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off">
+    </div>
+    <div class="error-msg" id="join-error"></div>
+    <button class="btn btn-primary" onclick="joinRoom()">Entrar</button>
+    <button class="btn btn-ghost" onclick="showScreen('home')">Voltar</button>
+  </div>
+
+  <!-- ══ LOBBY ══ -->
+  <div id="lobby" class="screen">
+    <div class="brand-logo" style="font-size:24px">SINTONIA</div>
+    <div class="room-code-box">
+      <span class="room-code-label">Sala</span>
+      <div class="room-code-display" id="lobby-room-code">0001</div>
+      <span class="room-code-hint">Informe este número e a senha para os amigos</span>
+    </div>
+    <div class="section-title" style="font-size:14px;color:#888">Jogadores (2-4)</div>
+    <div class="player-list" id="lobby-players"></div>
+
+    <div id="lobby-host-controls" style="display:none;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;align-items:center">
+      <div class="min-warn" id="min-warn" style="display:none">Mínimo 2 jogadores</div>
+      <button class="btn btn-primary" id="btn-start-game" onclick="startGame()">Iniciar Jogo</button>
+    </div>
+    <div id="lobby-waiting" style="display:none">
+      <span class="waiting-text">Aguardando o host iniciar...</span>
+    </div>
+
+    <button class="btn btn-ghost" onclick="leaveRoom()">Sair da Sala</button>
+  </div>
+
+  <!-- ══ GAME ══ -->
+  <div id="game" class="screen">
+    <div class="game-top">
+      <div class="stat-block">
+        <span class="stat-label">Nível</span>
+        <span class="stat-value" id="stat-level">1/12</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-label">Vidas</span>
+        <span class="stat-value lives" id="stat-lives">❤️ 3</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-label">Estrelas</span>
+        <span class="stat-value stars" id="stat-stars">⭐ 1</span>
+      </div>
+    </div>
+
+    <div class="others-row" id="others-row"></div>
+
+    <div class="pile-area" id="pile-area">
+      <span class="pile-empty">Aguardando primeira carta...</span>
+    </div>
+
+    <div class="hand-area">
+      <span class="hand-label">Suas cartas</span>
+      <div class="hand" id="hand"></div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="btn-play" id="btn-play" onclick="playCard()">Jogar Menor Carta</button>
+      <button class="btn-star" id="btn-star" onclick="requestStar()">⭐ Pedir Estrela</button>
+    </div>
+
+    <button class="btn btn-ghost" onclick="closeRoomConfirm()" id="game-host-close" style="display:none">Encerrar Sala</button>
+  </div>
+
+  <!-- ══ GAME OVER ══ -->
+  <div id="game-over" class="screen">
+    <div class="gameover-icon" id="gameover-icon">🏆</div>
+    <div class="gameover-title win" id="gameover-title">Vocês estão em sintonia!</div>
+    <div class="gameover-text" id="gameover-text"></div>
+
+    <div id="gameover-host-controls" style="display:none;width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px">
+      <button class="btn btn-primary" onclick="backToLobby()">Jogar novamente</button>
+      <button class="btn btn-ghost" onclick="closeRoomConfirm()">Encerrar Sala</button>
+    </div>
+    <div id="gameover-waiting" style="display:none">
+      <span class="waiting-text">Aguardando o host...</span>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io('/sintonia', {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000,
+      timeout: 10000,
+    });
+
+    let myRoomId = null;
+    let myName = null;
+    let isHost = false;
+    let currentJoinRequestId = null;
+    let lastState = null;
+    let pendingStarRequest = null; // { from } when someone (else) requested
+
+    // ── Fingerprint (shared with impostor) ──
+    function generateFingerprint() {
+      const stored = localStorage.getItem('impostor-fp');
+      if (stored) return stored;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText('IMPOSTOR-FP', 2, 2);
+      const canvasData = canvas.toDataURL();
+      const raw = [
+        navigator.userAgent,
+        screen.width + 'x' + screen.height,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        navigator.language,
+        canvasData,
+      ].join('|');
+      let hash = 0;
+      for (let i = 0; i < raw.length; i++) {
+        const chr = raw.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0;
+      }
+      const fp = 'fp_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+      localStorage.setItem('impostor-fp', fp);
+      return fp;
+    }
+    const myFingerprint = generateFingerprint();
+
+    function saveSession(sessionId) { localStorage.setItem('sintonia-session', sessionId); }
+    function getSession() { return localStorage.getItem('sintonia-session'); }
+    function clearSession() { localStorage.removeItem('sintonia-session'); }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // ── Modals ──
+    let confirmCallback = null;
+    function showConfirm(text, cb) {
+      document.getElementById('confirm-text').textContent = text;
+      document.getElementById('confirm-overlay').classList.add('active');
+      confirmCallback = cb;
+    }
+    function confirmYes() {
+      document.getElementById('confirm-overlay').classList.remove('active');
+      if (confirmCallback) confirmCallback();
+      confirmCallback = null;
+    }
+    function confirmCancel() {
+      document.getElementById('confirm-overlay').classList.remove('active');
+      confirmCallback = null;
+    }
+    function showAlert(text) {
+      document.getElementById('alert-text').textContent = text;
+      document.getElementById('alert-overlay').classList.add('active');
+    }
+    function closeAlert() {
+      document.getElementById('alert-overlay').classList.remove('active');
+    }
+
+    // ── Connection ──
+    socket.on('connect', () => {
+      socket.emit('register', {
+        fingerprint: myFingerprint,
+        meta: {
+          userAgent: navigator.userAgent,
+          screenSize: screen.width + 'x' + screen.height,
+          language: navigator.language,
+          referrer: document.referrer || 'direto',
+          deviceType: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : (/Tablet|iPad/i.test(navigator.userAgent) ? 'tablet' : 'desktop'),
+        },
+      }, (res) => {
+        if (res?.access && !res.access.allowed) {
+          showAlert('Seu tempo gratuito acabou. Acesse o admin para liberar.');
+          return;
+        }
+        const sid = getSession();
+        if (sid) {
+          socket.emit('reconnect-session', { sessionId: sid }, (r) => {
+            if (r.ok) {
+              showScreen(r.screen);
+              document.getElementById('lobby-room-code').textContent = r.roomCode;
+            } else {
+              clearSession();
+            }
+          });
+        }
+      });
+    });
+
+    socket.on('access-blocked', () => {
+      showAlert('Seu acesso foi bloqueado.');
+    });
+
+    // ── Create / Join ──
+    function createRoom() {
+      const name = document.getElementById('create-name').value.trim().toUpperCase();
+      const password = document.getElementById('create-password').value.trim();
+      const errorEl = document.getElementById('create-error');
+      if (!name) { errorEl.textContent = 'Digite seu nome.'; return; }
+      if (!/^\d{4}$/.test(password)) { errorEl.textContent = 'Senha deve ter 4 dígitos.'; return; }
+      errorEl.textContent = '';
+      socket.emit('create-room', { playerName: name, password }, (res) => {
+        if (res.error) { errorEl.textContent = res.error; return; }
+        myRoomId = res.roomId;
+        myName = name;
+        saveSession(res.sessionId);
+        document.getElementById('lobby-room-code').textContent = res.roomCode;
+        showScreen('lobby');
+      });
+    }
+
+    function joinRoom() {
+      const name = document.getElementById('join-name').value.trim().toUpperCase();
+      const roomCode = document.getElementById('join-room-code').value.trim();
+      const password = document.getElementById('join-password').value.trim();
+      const errorEl = document.getElementById('join-error');
+      if (!name) { errorEl.textContent = 'Digite seu nome.'; return; }
+      if (!/^\d{4}$/.test(roomCode)) { errorEl.textContent = 'Sala deve ter 4 dígitos.'; return; }
+      if (!/^\d{4}$/.test(password)) { errorEl.textContent = 'Senha deve ter 4 dígitos.'; return; }
+      errorEl.textContent = '';
+      socket.emit('join-room', { roomCode, playerName: name, password }, (res) => {
+        if (res.error) { errorEl.textContent = res.error; return; }
+        if (res.pending) {
+          errorEl.style.color = '#44ccdd';
+          errorEl.textContent = res.message || 'Aguardando aprovação do host...';
+          return;
+        }
+        myRoomId = res.roomId;
+        myName = name;
+        saveSession(res.sessionId);
+        document.getElementById('lobby-room-code').textContent = res.roomCode;
+        showScreen('lobby');
+      });
+    }
+
+    socket.on('join-approved', (data) => {
+      myRoomId = data.roomId;
+      saveSession(data.sessionId);
+      document.getElementById('lobby-room-code').textContent = data.roomCode;
+      const errEl = document.getElementById('join-error');
+      if (errEl) { errEl.style.color = '#ff4444'; errEl.textContent = ''; }
+      showScreen('game');
+    });
+
+    socket.on('join-rejected', (data) => {
+      const errEl = document.getElementById('join-error');
+      if (errEl) {
+        errEl.style.color = '#ff4444';
+        errEl.textContent = data.reason || 'Entrada não aprovada.';
+      }
+      showAlert(data.reason || 'O host não aprovou sua entrada.');
+    });
+
+    socket.on('join-request', (data) => {
+      currentJoinRequestId = data.requestId;
+      const toast = document.getElementById('join-toast');
+      const txt = document.getElementById('join-toast-text');
+      txt.innerHTML = `<span class="join-toast-name">${data.playerName}</span><br>${data.message}`;
+      toast.classList.add('active');
+    });
+
+    function respondJoin(approved) {
+      if (!currentJoinRequestId) return;
+      socket.emit('join-response', { requestId: currentJoinRequestId, approved });
+      document.getElementById('join-toast').classList.remove('active');
+      currentJoinRequestId = null;
+    }
+
+    // ── Lobby ──
+    socket.on('lobby-update', (data) => {
+      isHost = data.isHost;
+      myName = myName || data.players[data.players.length - 1];
+      document.getElementById('lobby-room-code').textContent = data.roomCode;
+      const listEl = document.getElementById('lobby-players');
+      listEl.innerHTML = data.players.map((name, i) => `
+        <div class="player-item">
+          <span>${name}</span>
+          ${i === 0 ? '<span class="player-badge">HOST</span>' : ''}
+        </div>
+      `).join('');
+
+      const hostC = document.getElementById('lobby-host-controls');
+      const waiting = document.getElementById('lobby-waiting');
+      if (isHost) {
+        hostC.style.display = 'flex';
+        waiting.style.display = 'none';
+        const canStart = data.players.length >= 2 && data.players.length <= 4;
+        document.getElementById('btn-start-game').disabled = !canStart;
+        document.getElementById('btn-start-game').style.opacity = canStart ? '1' : '0.4';
+        document.getElementById('min-warn').style.display = canStart ? 'none' : 'block';
+        document.getElementById('min-warn').textContent = data.players.length < 2 ? 'Mínimo 2 jogadores' : 'Máximo 4 jogadores';
+      } else {
+        hostC.style.display = 'none';
+        waiting.style.display = 'block';
+      }
+    });
+
+    function startGame() { socket.emit('start-game'); }
+
+    function leaveRoom() {
+      socket.emit('leave-room');
+      clearSession();
+      myRoomId = null;
+      myName = null;
+      showScreen('home');
+    }
+
+    // ── Game ──
+    socket.on('game-started', (data) => {
+      // Show level overlay briefly then game
+      showLevelOverlay(data.level, null);
+      setTimeout(() => {
+        showScreen('game');
+      }, 1500);
+    });
+
+    function showLevelOverlay(level, bonusText) {
+      const overlay = document.getElementById('level-overlay');
+      document.getElementById('level-num').textContent = level;
+      const bonusEl = document.getElementById('level-bonus');
+      if (bonusText) {
+        bonusEl.textContent = bonusText;
+        bonusEl.style.display = 'block';
+      } else {
+        bonusEl.style.display = 'none';
+      }
+      overlay.classList.add('active');
+      setTimeout(() => overlay.classList.remove('active'), 1500);
+    }
+
+    socket.on('state', (state) => {
+      lastState = state;
+      myName = state.myName;
+      renderGame(state);
+    });
+
+    function renderGame(state) {
+      // Stats
+      document.getElementById('stat-level').textContent = state.level + '/' + state.totalLevels;
+      document.getElementById('stat-lives').textContent = '❤️ ' + state.lives;
+      document.getElementById('stat-stars').textContent = '⭐ ' + state.stars;
+
+      // Others
+      const othersEl = document.getElementById('others-row');
+      othersEl.innerHTML = state.players
+        .filter(p => p.name !== myName)
+        .map(p => {
+          const count = state.handCounts[p.name] || 0;
+          const minis = Array(count).fill('<div class="other-mini-card"></div>').join('');
+          return `<div class="other-player ${p.disconnected ? 'disconnected' : ''}">
+            <span class="other-name">${p.name}${p.disconnected ? ' (off)' : ''}</span>
+            <span class="other-count">${count}</span>
+            <div class="other-cards">${minis}</div>
+          </div>`;
+        }).join('');
+
+      // Pile (last card prominent)
+      const pileEl = document.getElementById('pile-area');
+      if (!state.pile || state.pile.length === 0) {
+        pileEl.innerHTML = '<span class="pile-empty">Aguardando primeira carta...</span>';
+      } else {
+        const last = state.pile[state.pile.length - 1];
+        pileEl.innerHTML = `
+          <div class="pile-card ${last.error ? 'error' : ''}">
+            ${last.card}
+            <span class="pile-card-by">${last.by}</span>
+          </div>
+        `;
+      }
+
+      // My hand
+      const handEl = document.getElementById('hand');
+      const myCards = state.myHand || [];
+      if (myCards.length === 0) {
+        handEl.innerHTML = '<span style="font-size:12px;color:#555">Sem cartas</span>';
+      } else {
+        handEl.innerHTML = myCards.map((c, i) => `
+          <div class="hand-card ${i === 0 ? 'lowest' : ''}">${c}</div>
+        `).join('');
+      }
+
+      // Buttons
+      const playBtn = document.getElementById('btn-play');
+      const starBtn = document.getElementById('btn-star');
+      playBtn.disabled = myCards.length === 0;
+      starBtn.disabled = state.stars <= 0 || myCards.length === 0 || !!state.starRequest;
+
+      // Host close button visible only to host
+      document.getElementById('game-host-close').style.display =
+        state.players[0]?.name === myName ? 'block' : 'none';
+
+      // Star request
+      if (state.starRequest) {
+        showStarOverlay(state);
+      } else {
+        document.getElementById('star-overlay').classList.remove('active');
+      }
+    }
+
+    function playCard() { socket.emit('play-card'); }
+
+    function requestStar() {
+      socket.emit('request-star');
+    }
+
+    function showStarOverlay(state) {
+      const sr = state.starRequest;
+      const overlay = document.getElementById('star-overlay');
+      const titleEl = document.getElementById('star-title');
+      const txtEl = document.getElementById('star-text');
+      const progEl = document.getElementById('star-progress');
+      const btns = document.getElementById('star-buttons');
+
+      const isFromMe = sr.from === myName;
+      titleEl.textContent = isFromMe ? 'Você pediu uma Estrela' : `${sr.from} pediu uma Estrela`;
+      txtEl.textContent = isFromMe
+        ? 'Aguardando todos confirmarem para descartar a menor carta de cada jogador.'
+        : 'Confirmar fará todos descartarem sua menor carta. Concorda?';
+      progEl.textContent = `${sr.confirmed.length} de ${sr.total} confirmaram`;
+
+      if (isFromMe || sr.confirmed.includes(myName)) {
+        btns.style.display = 'none';
+      } else {
+        btns.style.display = 'flex';
+      }
+
+      overlay.classList.add('active');
+    }
+
+    function confirmStar() { socket.emit('confirm-star'); }
+    function rejectStar() { socket.emit('reject-star'); }
+
+    socket.on('star-cancelled', (data) => {
+      document.getElementById('star-overlay').classList.remove('active');
+      showAlert(data.reason || 'Pedido de estrela cancelado.');
+    });
+
+    socket.on('star-used', (data) => {
+      // Show discarded cards briefly
+      const overlay = document.getElementById('star-overlay');
+      const txtEl = document.getElementById('star-text');
+      const progEl = document.getElementById('star-progress');
+      const btns = document.getElementById('star-buttons');
+      const titleEl = document.getElementById('star-title');
+      titleEl.textContent = 'Estrela usada!';
+      txtEl.innerHTML = 'Cartas descartadas:<br>' + data.discarded.map(d => `<b style="color:#44ccdd">${d.name}: ${d.card}</b>`).join(' · ');
+      progEl.textContent = '';
+      btns.style.display = 'none';
+      overlay.classList.add('active');
+      setTimeout(() => overlay.classList.remove('active'), 2400);
+    });
+
+    // ── Card played ──
+    socket.on('card-played', (data) => {
+      // visual animation handled by state update — could add sound here
+    });
+
+    // ── Error flash ──
+    socket.on('error-flash', (data) => {
+      const overlay = document.getElementById('error-overlay');
+      document.getElementById('error-played-card').textContent = data.playedCard;
+      document.getElementById('error-info').textContent =
+        `${data.playedBy} jogou ${data.playedCard}, mas havia cartas menores em outras mãos:`;
+      const lowerEl = document.getElementById('error-lower-cards');
+      lowerEl.innerHTML = data.lowerCards.flatMap(item =>
+        item.cards.map(c => `
+          <div class="error-lower-card">
+            <span class="error-lower-name">${item.name}</span>
+            <span class="error-lower-num">${c}</span>
+          </div>
+        `)
+      ).join('');
+      overlay.classList.add('active');
+      setTimeout(() => overlay.classList.remove('active'), 2400);
+    });
+
+    // ── Level transition ──
+    socket.on('level-complete', (data) => {
+      let bonus = '';
+      if (data.livesGained > 0) bonus += '+1 ❤️ vida ';
+      if (data.starsGained > 0) bonus += '+1 ⭐ estrela';
+      showLevelOverlay(data.level, bonus.trim() || (data.isLastLevel ? 'Última fase!' : 'Próximo nível'));
+    });
+
+    socket.on('level-started', (data) => {
+      // State will follow via 'state' event
+    });
+
+    // ── Game over ──
+    socket.on('game-over', (data) => {
+      const isHostNow = lastState && lastState.players[0]?.name === myName;
+      const iconEl = document.getElementById('gameover-icon');
+      const titleEl = document.getElementById('gameover-title');
+      const textEl = document.getElementById('gameover-text');
+
+      if (data.result === 'win') {
+        iconEl.textContent = '🏆';
+        titleEl.textContent = 'Vocês estão em sintonia!';
+        titleEl.className = 'gameover-title win';
+        textEl.textContent = `Completaram todos os ${data.totalLevels} níveis. Sintonia máxima!`;
+      } else {
+        iconEl.textContent = '💔';
+        titleEl.textContent = 'Falharam desta vez';
+        titleEl.className = 'gameover-title lose';
+        textEl.textContent = `Chegaram até o nível ${data.levelReached} de ${data.totalLevels}. Tentem novamente!`;
+      }
+
+      document.getElementById('gameover-host-controls').style.display = isHostNow ? 'flex' : 'none';
+      document.getElementById('gameover-waiting').style.display = isHostNow ? 'none' : 'block';
+      showScreen('game-over');
+    });
+
+    function backToLobby() {
+      socket.emit('back-to-lobby');
+    }
+
+    function closeRoomConfirm() {
+      showConfirm('Encerrar a sala? Todos serão desconectados.', () => {
+        socket.emit('close-room');
+      });
+    }
+
+    socket.on('go-to-lobby', () => {
+      lastState = null;
+      showScreen('lobby');
+    });
+
+    socket.on('room-closed', () => {
+      clearSession();
+      myRoomId = null;
+      lastState = null;
+      showAlert('A sala foi encerrada pelo host.');
+      showScreen('home');
+    });
+  </script>
+</body>
+</html>
